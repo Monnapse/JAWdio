@@ -1,5 +1,6 @@
 import tkinter as tk
 import math
+import win32gui
 
 class JAWdio_Wheel:
     def __init__(self, root):
@@ -15,6 +16,8 @@ class JAWdio_Wheel:
         self.radius = 150
         self.num_buttons = 6
         
+        self.center_on_active_window(self.root, self.window_width, self.window_height)
+
         self.canvas = tk.Canvas(self.root, width=self.window_width, height=self.window_height)
         self.canvas.pack()
 
@@ -24,9 +27,14 @@ class JAWdio_Wheel:
 
         self.canvas.bind("<Motion>", self.on_mouse_move)
 
+    def toggle_window(self):
+        if self.root.state() == 'normal':
+            self.root.withdraw()
+        else:
+            self.root.deiconify()
+            
     def create_wheel(self):
-        self.canvas.create_oval(self.center_x - self.radius, self.center_y - self.radius,
-                                self.center_x + self.radius, self.center_y + self.radius)
+        self.canvas.create_oval(self.center_x - self.radius, self.center_y - self.radius, self.center_x + self.radius, self.center_y + self.radius)
 
         angle_gap = 360 / self.num_buttons
         for i in range(self.num_buttons):
@@ -54,3 +62,20 @@ class JAWdio_Wheel:
             for button, bx, by in self.buttons:
                 if button != closest_button:
                     button.config(bg="lightgrey")
+
+    def get_active_window_position_and_size(self):
+        hwnd = win32gui.GetForegroundWindow()
+        rect = win32gui.GetWindowRect(hwnd)
+        width = rect[2] - rect[0]
+        height = rect[3] - rect[1]
+        x = rect[0]
+        y = rect[1]
+        return x, y, width, height
+
+    def center_on_active_window(self, window, popup_width, popup_height):
+        x, y, active_width, active_height = self.get_active_window_position_and_size()
+
+        center_x = x + (active_width - popup_width) // 2
+        center_y = y + (active_height - popup_height) // 2
+
+        window.geometry(f'{popup_width}x{popup_height}+{center_x}+{center_y}')
