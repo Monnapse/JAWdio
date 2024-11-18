@@ -7,6 +7,7 @@ class JAWdio_Questions:
         self.ask_questions()
 
     def print_speakers(self):
+        print(sc.default_speaker().name)
         speakers = sc.all_speakers()
         speaker_index = 0
         for speaker in speakers:
@@ -15,7 +16,7 @@ class JAWdio_Questions:
 
     def get_speaker(self, number: int):
         speakers = sc.all_speakers()
-        return speakers[number]
+        return speakers[number].name
 
     def ask_questions(self):
         self.print_speakers()

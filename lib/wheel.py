@@ -62,6 +62,8 @@ class JAWdio_Wheel:
             self.center_on_active_window(self.root, self.window_width, self.window_height)
     def create_wheel(self):
         """Create the emote wheel with audio buttons."""
+        if len(self.pages) <= 0: return
+        
         self.buttons.clear()  # Clear existing buttons
         angle_gap = 360 / self.num_buttons
         for i, (file_name, creation_time) in enumerate(self.pages[self.current_page]):
