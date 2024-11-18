@@ -2,7 +2,8 @@ import soundcard as sc
 
 class JAWdio_Questions:
     def __init__(self):
-        self.speaker_id = None
+        self.record_output_id = None
+        self.play_output_id = None
 
         self.ask_questions()
 
@@ -20,5 +21,9 @@ class JAWdio_Questions:
 
     def ask_questions(self):
         self.print_speakers()
-        speaker_index = int(input("Pick a speaker by index: "))
-        self.speaker_id = self.get_speaker(speaker_index)
+        record_index = int(input("Pick a speaker to record audio on (by index): "))
+        self.record_output_id = self.get_speaker(record_index)
+        print(self.record_output_id)
+        play_index = int(input("Pick a speaker to play audio onto on (by index): "))
+        self.play_output_id = self.get_speaker(play_index)
+        print(self.play_output_id)

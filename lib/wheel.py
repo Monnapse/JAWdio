@@ -10,7 +10,7 @@ from pydub.playback import play
 import threading
 
 class JAWdio_Wheel:
-    def __init__(self, root: tk.Tk, folder_path: str):
+    def __init__(self, root: tk.Tk, folder_path: str, play_audio_event):
         self.root = root
         self.root.title("Hover Wheel Selection")
 
@@ -25,6 +25,7 @@ class JAWdio_Wheel:
         # Folder path containing audio files
         self.folder_path = folder_path
         self.audio_files = self.get_audio_files(self.folder_path)
+        self.play_audio_event = play_audio_event
 
         # Center the window on the active window
         self.center_on_active_window(self.root, self.window_width, self.window_height)
@@ -97,20 +98,20 @@ class JAWdio_Wheel:
         """Reset button color when hover ends."""
         button.config(bg="lightgrey")  # Reset to default color
 
-    
-
     def on_button_click(self, event, button):
         """Handle button click event."""
         # Perform action on button click (e.g., play the selected audio file)
         audio_file: str = button.cget("text")
         #audio_file_name = audio_file.split("\n")[0]
-        print(f"Playing audio: {self.folder_path}/{audio_file}")
+        #print(f"Playing audio: {self.folder_path}/{audio_file}")
         button.config(bg="yellow")  # Example: Change button color to yellow when clicked
-        file = f"{self.folder_path}/{audio_file}"
-        def play_audio():
-            sound = AudioSegment.from_file(file)
-            play(sound)
-        threading.Thread(target=play_audio, daemon=True).start()
+        if self.play_audio_event:
+            self.play_audio_event(audio_file)
+        #file = f"{self.folder_path}/{audio_file}"
+        #def play_audio():
+        #    sound = AudioSegment.from_file(file)
+        #    play(sound)
+        #threading.Thread(target=play_audio, daemon=True).start()
 
     def on_scroll(self, event):
         """Handle scroll wheel event for page switching."""
