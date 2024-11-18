@@ -48,6 +48,9 @@ class JAWdio_Wheel:
         else:
             self.root.deiconify()
 
+            self.audio_files = self.get_audio_files(self.folder_path)
+            self.pages = self.create_audio_pages(self.audio_files)
+
             self.unlock_mouse()
             self.create_wheel()
             self.center_on_active_window(self.root, self.window_width, self.window_height)
