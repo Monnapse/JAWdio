@@ -1,8 +1,9 @@
 import tkinter as tk
+from tkinter import Tk, Button
+from tkinter.font import Font
 import math
 import os
 import win32gui
-from lib import input
 import time
 from pydub import AudioSegment
 from pydub.playback import play
@@ -39,7 +40,9 @@ class JAWdio_Wheel:
         self.current_page = 0
         self.pages = self.create_audio_pages(self.audio_files)
 
-        self.input = input.JAWdio_Keybinds()
+        self.button_font = Font(family="Arial", size=7)
+
+        #self.input = input.JAWdio_Keybinds()
 
         # Bind scroll events to switch pages
         self.root.bind("<MouseWheel>", self.on_scroll)
@@ -57,7 +60,6 @@ class JAWdio_Wheel:
             self.unlock_mouse()
             self.create_wheel()
             self.center_on_active_window(self.root, self.window_width, self.window_height)
-
     def create_wheel(self):
         """Create the emote wheel with audio buttons."""
         self.buttons.clear()  # Clear existing buttons
@@ -70,8 +72,9 @@ class JAWdio_Wheel:
             # Format creation time into a readable string
             time_str = time.ctime(creation_time)
 
-            button_text = f"{file_name}\n{time_str}"  # Combine file name and creation time
-            button = tk.Label(self.root, text=button_text, bg="lightgrey", width=20, height=2, anchor='w', justify='left')
+            button_text = f"{file_name}"  # Combine file name and creation time
+            button = tk.Label(self.root, text=button_text, font=self.button_font, bg="lightgrey", width=20, height=2, anchor='w', justify='left')
+            button.pack(fill="both", expand=True, padx=20, pady=20)
             button.place(x=button_x - 70, y=button_y - 30)
 
             # Bind hover events to highlight the button when the mouse enters or leaves it
@@ -80,6 +83,7 @@ class JAWdio_Wheel:
 
             # Bind click event on the button to perform an action when clicked
             button.bind("<Button-1>", lambda event, btn=button: self.on_button_click(event, btn))
+
             print("Created wheel")
             self.buttons.append(button)
 
@@ -97,10 +101,10 @@ class JAWdio_Wheel:
         """Handle button click event."""
         # Perform action on button click (e.g., play the selected audio file)
         audio_file: str = button.cget("text")
-        audio_file_name = audio_file.split("\n")[0]
-        print(f"Playing audio: {self.folder_path}/{audio_file_name}")
+        #audio_file_name = audio_file.split("\n")[0]
+        print(f"Playing audio: {self.folder_path}/{audio_file}")
         button.config(bg="yellow")  # Example: Change button color to yellow when clicked
-        file = f"{self.folder_path}/{audio_file_name}"
+        file = f"{self.folder_path}/{audio_file}"
         def play_audio():
             sound = AudioSegment.from_file(file)
             play(sound)
