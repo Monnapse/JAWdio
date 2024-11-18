@@ -4,6 +4,9 @@ import os
 import win32gui
 from lib import input
 import time
+from pydub import AudioSegment
+from pydub.playback import play
+import threading
 
 class JAWdio_Wheel:
     def __init__(self, root: tk.Tk, folder_path: str):
@@ -88,12 +91,20 @@ class JAWdio_Wheel:
         """Reset button color when hover ends."""
         button.config(bg="lightgrey")  # Reset to default color
 
+    
+
     def on_button_click(self, event, button):
         """Handle button click event."""
         # Perform action on button click (e.g., play the selected audio file)
-        audio_file = button.cget("text")
-        print(f"Playing audio: {audio_file}")
+        audio_file: str = button.cget("text")
+        audio_file_name = audio_file.split("\n")[0]
+        print(f"Playing audio: {self.folder_path}/{audio_file_name}")
         button.config(bg="yellow")  # Example: Change button color to yellow when clicked
+        file = f"{self.folder_path}/{audio_file_name}"
+        def play_audio():
+            sound = AudioSegment.from_file(file)
+            play(sound)
+        threading.Thread(target=play_audio, daemon=True).start()
 
     def on_scroll(self, event):
         """Handle scroll wheel event for page switching."""
