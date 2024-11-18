@@ -18,6 +18,8 @@ class JAWdio_Wheel:
         
         self.center_on_active_window(self.root, self.window_width, self.window_height)
 
+        self.root.configure(bg='')
+
         self.canvas = tk.Canvas(self.root, width=self.window_width, height=self.window_height)
         self.canvas.pack()
 
