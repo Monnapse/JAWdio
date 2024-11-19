@@ -4,7 +4,7 @@ let timestamps = [
 ];
 
 // Format timestamp to human-readable format
-function formatTimestamp(timestamp) {
+function formatTimestamp(timestamp, ago) {
     const now = new Date();
     const timestampDate = new Date(timestamp * 1000); // Convert timestamp to milliseconds
     const diffInSeconds = Math.floor((now - timestampDate) / 1000);
@@ -42,8 +42,15 @@ function formatTimestamp(timestamp) {
         timeString += `${seconds} second${seconds !== 1 ? 's' : ''}`;
     }
 
-    return timeString + " ago";
-}
+    if (ago)
+    {
+        return timeString + " ago";
+    }
+    else 
+    {
+        return timeString;
+    }
+}   
 
 // Update all timestamps in the list
 function updateTimestamps() {
@@ -62,7 +69,7 @@ function updateTimestamps() {
         //}
         //console.log(timestampObj.element.textContent)
         // Update the text content of the list item with the formatted time
-        timestampObj.element.text(formatTimestamp(timestampObj.timestamp));
+        timestampObj.element.text(formatTimestamp(timestampObj.timestamp, timestampObj.ago));
     });
 }
 
@@ -75,11 +82,15 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // Function to add a new timestamp
-function addTimestamp(element, timestamp) {
+function addTimestamp(element, timestamp, ago) {
+    if (ago = null)
+    {
+        ago = true;
+    }
     //const newTimestamp = Math.floor(Date.now() / 1000); // Current timestamp in seconds
 
     // Add the new timestamp to the array
-    timestamps.push({ timestamp: timestamp, element: element });
+    timestamps.push({ timestamp: timestamp, element: element, ago: ago });
 
     // Ensure the timestamp will be displayed and updated in the future
     updateTimestamps();

@@ -12,15 +12,15 @@ $('#toggle-recording').click(function() {
       })
       .then(response => response.json())
       .then(data => {
-        console.log('Success:', data);
+        //console.log('Success:', data);
         if (data.recording)
         {
-            console.log('Is Recording');
+            //console.log('Is Recording');
             recordButton.textContent = "Stop Recording"
         }
         else
         {
-            console.log('Is Not Recording');
+            //console.log('Is Not Recording');
             recordButton.textContent = "Start Recording"
         }
       })
@@ -28,3 +28,16 @@ $('#toggle-recording').click(function() {
         console.error('Error:', error);
       });
 });
+
+//const durationSpan = document.getElementById("duration");
+//socket.on("recording_started", function(data) {
+//  console.log(`Recording Started: ${data}`)
+//  //durationSpan.textContent = data.timestamp; // Update duration in seconds
+//  addTimestamp(durationSpan, data.timestamp, false)
+//});
+//
+//socket.on("recording_stopped", function(data) {
+//  console.log(`Recording Ended: ${data}`)
+//  //durationSpan.textContent = data.timestamp; // Update duration in seconds
+//  //addTimestamp(durationSpan, data.timestamp, false)
+//});

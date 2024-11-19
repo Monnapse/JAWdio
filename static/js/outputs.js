@@ -9,8 +9,8 @@ function select(url, element)
     const selectedText = element.options[element.selectedIndex].text;
 
     // Log the selected value and text
-    console.log('Selected device ID:', selectedValue);
-    console.log('Selected device name:', selectedText);
+    //console.log('Selected device ID:', selectedValue);
+    //console.log('Selected device name:', selectedText);
 
     // Optionally, send the selected data to the server with a POST request
     fetch(url, {
@@ -25,7 +25,7 @@ function select(url, element)
     })
     .then(response => response.json())
     .then(data => {
-      console.log('Success:', data);
+      //console.log('Success:', data);
     })
     .catch((error) => {
       console.error('Error:', error);

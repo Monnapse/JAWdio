@@ -77,22 +77,51 @@ def play_audio(filename):
             # Define a new function to handle playback
             def audio_playback():
                 try:
+                    # Get the total duration of the audio
+                    audio_duration = len(data) / samplerate
+                    start_time = time.time()
+
+                    print(audio_duration)
+                    try:
+                        socketio.emit('audio_duration', {'duration': audio_duration}, namespace='/')
+                        print("Emitted audio_duration")
+                    except Exception as e:
+                        print(f"Failed to emit audio_duration: {e}")
+
                     # Play the audio
                     sd.play(data, samplerate, device=device_index)
                     while sd.get_stream().active:
-                        # Check if stop event is set, and stop playback if needed
                         if current_audio_stop_event.is_set():
                             sd.stop()
                             print("Playback stopped due to new audio request.")
                             break
+                        
+                        # Emit current playback position
+                        current_position = time.time() - start_time
+                        socketio.emit('audio_progress', {
+                            'current_position': current_position,
+                            'total_duration': audio_duration
+                        }, namespace='/')
+                        socketio.sleep(0.5)  # Emit progress updates every 500ms
+
                     sd.wait()  # Wait for the audio to finish
                 except Exception as e:
                     print(f"Error during playback: {e}")
                     sd.stop()
 
             # Create a new thread for the audio playback
-            current_playback_thread = threading.Thread(target=audio_playback, daemon=True)
-            current_playback_thread.start()
+
+            #audio_duration = len(data) / samplerate
+            #print(audio_duration)
+            #try:
+            #    socketio.emit('audio_duration', {'duration': audio_duration}, namespace='/')
+            #    print("Emitted audio_duration")
+            #except Exception as e:
+            #    print(f"Failed to emit audio_duration: {e}")
+
+            #current_playback_thread = threading.Thread(target=audio_playback, daemon=True)
+            #current_playback_thread.start()
+            current_playback_thread = socketio.start_background_task(audio_playback)
             print(f"Started playing {filename}")
         except Exception as e:
             print(f"Error during playback: {e}")
@@ -111,6 +140,7 @@ def record_audio():
     try:
         with sc.get_microphone(id=input_device, include_loopback=True).recorder(samplerate=sample_rate) as mic:
             audio_data = []
+
             while recording_event.is_set():  # Run while the event is set
                 chunk = mic.record(numframes=buffer_size)
                 audio_data.append(chunk)
@@ -121,12 +151,13 @@ def record_audio():
             sf.write(file=audio_path, data=audio_data, samplerate=sample_rate)
 
             # Optional: Transcribe and rename
-            new_file_name = transcribe_and_rename(audio_path)
+            new_file_name = transcribe_and_rename(audio_path, f"{AUDIO_FOLDER}/{selected_category}")
             print(f"File saved as: {new_file_name}")
     except Exception as e:
         print(f"Error during recording: {e}")
 
-def transcribe_and_rename(audio_path):
+    #socketio.emit('recording_stopped', {'timestamp': time.time()}, namespace='/')
+def transcribe_and_rename(audio_path, path):
     recognizer = sr.Recognizer()
     try:
         # Load audio file
@@ -140,7 +171,7 @@ def transcribe_and_rename(audio_path):
         sanitized_text = "".join(c if c.isalnum() or c in " _-" else "_" for c in text)
 
         # Rename file
-        new_file_path = os.path.join(AUDIO_FOLDER, f"{sanitized_text}.wav")
+        new_file_path = os.path.join(path, f"{sanitized_text}.wav")
         os.rename(audio_path, new_file_path)
 
         return new_file_path
@@ -183,7 +214,6 @@ def index():
 #    category = data.get('category', '')
 #    socketio.emit('update_category_list', {'category': category})
 
-
 # Flask route to handle play audio requests
 @app.route('/play_audio', methods=['POST'])
 def play():
@@ -221,6 +251,7 @@ def toggle_record():
         recording_event = threading.Event()  # Reset the event
         recording_event.set()
         threading.Thread(target=record_audio, daemon=True).start()
+        #socketio.emit('recording_started', {'timestamp': time.time()}, namespace='/')
         return jsonify({'recording': True})
 
 #@app.route('/stop_recording', methods=['POST'])
@@ -350,11 +381,12 @@ def handle_create_category_folder():
     except Exception as e:
         print(f"Error creating category folder: {e}")
 
-@socketio.on('connect')
+@socketio.on('connect', namespace='/')
 def handle_connect():
+    print('Client connected!')
     try:
         audio_files_by_category = get_audio_files_by_category()
-        emit('update_audio_files', {"new_files": audio_files_by_category})
+        emit('update_audio_files', {"new_files": audio_files_by_category}, namespace='/')
     except Exception as e:
         print(f"Error during connect: {e}")
 
