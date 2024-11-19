@@ -6,65 +6,62 @@
     <title>JAWdio SoundBoard</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <link rel="stylesheet" href="/static/styles/style.css">
 </head>
 <body>
-    <h1>JAWdio SoundBoard</h1>
+    <div class="side-nav">
+        <!-- Recording Controls -->
+        <div>
+            <button id="toggle-recording">Start Recording</button>
+        </div>
 
-    <!-- List of available audio files -->
-    <div>
+        <!-- Device Selection -->
+        <div>
+            <h3>Select Input Device</h3>
+            <select id="input-devices">
+                {% for device in devices %}
+                    {% if device.name == input_device %}
+                        <option selected>{{ device.name }}</option>
+                    {% else %}
+                        <option>{{ device.name }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <h3>Select Output Device</h3>
+            <select id="output-devices">
+                {% for device in devices %}
+                    {% if device.name == output_device %}
+                        <option selected>{{ device.name }}</option>
+                    {% else %}
+                        <option>{{ device.name }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+
+        <div id="status" class="disconnected">Disconnected</div>
+    </div>
+
+    <main>
+        <h1>JAWdio SoundBoard</h1>
+        <!-- List of available audio files -->
+        <h3>Available Categories</h3>
+        <button id="add-category-button" onclick="addNewCategory()">Add Category</button>
+        <div id="categories">
+        <!-- Category buttons will be dynamically added here -->
+        </div>
         <h3>Available Audio Files</h3>
-        <ul id="audio-list">
-            <!-- Audio files will be added here dynamically -->
-        </ul>
-    </div>
+        <div id="audio-files">
+            
+        </div>
+    </main>
 
-    <!-- Recording Controls -->
-    <div>
-        <button id="start-recording">Start Recording</button>
-        <button id="stop-recording">Stop Recording</button>
-    </div>
-
-    <!-- Device Selection -->
-    <div>
-        <h3>Select Input Device</h3>
-        <select id="input-devices">
-            <!-- Input devices will be populated here -->
-        </select>
-    </div>
-    <div>
-        <h3>Select Output Device</h3>
-        <select id="output-devices">
-            <!-- Output devices will be populated here -->
-        </select>
-    </div>
-
-    <script>
-        var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
-
-        // Handle the real-time update of audio files
-        socket.on('update_audio_files', function(audioFiles) {
-            // Clear the current list
-            $('#audio-list').empty();
-            audioFiles.forEach(function(filename) {
-                $('#audio-list').append('<li><button class="play-button" data-filename="' + filename + '">' + filename + '</button></li>');
-            });
-        });
-
-        // Play audio
-        $(document).on('click', '.play-button', function() {
-            var filename = $(this).data('filename');
-            $.post('/play_audio', { filename: filename });
-        });
-
-        // Start recording
-        $('#start-recording').click(function() {
-            $.post('/start_recording');
-        });
-
-        // Stop recording
-        $('#stop-recording').click(function() {
-            $.post('/stop_recording');
-        });
-    </script>
+    <script src="/static/js/extra.js"></script>
+    <script src="/static/js/audio.js"></script>
+    <script src="/static/js/outputs.js"></script>
+    <script src="/static/js/recording.js"></script>
+    <script src="/static/js/connection.js"></script>
 </body>
 </html>

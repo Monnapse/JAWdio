@@ -1,0 +1,320 @@
+/* General Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Body Layout */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #121212;
+    color: #f0f0f0;
+    display: flex;
+}
+
+/* Side Navigation */
+.side-nav {
+    position: sticky;
+    top: 0;
+    width: 250px;
+    height: 100vh;
+    background-color: #1e1e1e;
+    padding: 20px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.side-nav h3 {
+    font-size: 1.2em;
+    color: #ffcc00;
+}
+
+.side-nav select {
+    background-color: #333;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 5px;
+    padding: 10px;
+    font-size: 1em;
+    width: 100%;
+}
+
+.side-nav button {
+    background-color: #ff6600;
+    border: none;
+    padding: 15px;
+    font-size: 1em;
+    color: #fff;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    width: 100%;
+}
+
+.side-nav button:hover {
+    background-color: #e55a00;
+}
+
+/* Main Content */
+main {
+    flex: 1;
+    padding: 20px;
+}
+
+main h1 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    color: #ffcc00;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* Audio List Grid */
+#category-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    justify-items: center;
+    margin-top: 20px;
+}
+
+.audio-item {
+    background-color: #444;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    width: 100%; 
+    cursor: pointer;
+    transition: background-color 0.3s;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.audio-item:hover {
+    background-color: #666;
+}
+
+.audio-item audio {
+    width: 100%;
+    border-radius: 5px;
+}
+
+.category-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* Adjust based on desired button size */
+    gap: 10px; /* Space between grid items */
+    padding: 10px;
+}
+
+.audio-file-button {
+    display: block;
+    padding: 10px;
+    text-align: center;
+    background-color: #f1f1f1;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.audio-file-button:hover {
+    background-color: #ddd;
+}
+
+/* Styling for category buttons */
+.category-button {
+    display: inline-block;
+    padding: 12px 20px;
+    margin: 5px;
+    background-color: #4CAF50; /* Green background */
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: capitalize; /* Capitalizes category names */
+}
+
+/* Hover effect for category buttons */
+.category-button:hover {
+    background-color: #45a049; /* Darker green on hover */
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3); /* Add shadow on hover */
+    transform: translateY(-2px); /* Slightly lift the button on hover */
+}
+
+/* Focus effect for category buttons (when clicked/focused) */
+.category-button:focus {
+    outline: none;
+    border: 2px solid #3e8e41; /* Green border on focus */
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2); /* Slight shadow */
+}
+
+/* Active state for when a category is clicked */
+.category-button:active {
+    transform: translateY(2px); /* Slightly depress button when clicked */
+    background-color: #388e3c; /* Even darker green when pressed */
+}
+
+/* Add subtle animation to make the button appear more interactive */
+.category-button {
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* General Button Styling */
+button {
+    background: linear-gradient(135deg, #ff7e5f, #feb47b); /* Gradient background */
+    border: none;
+    padding: 15px 20px;
+    font-size: 1.2em;
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), inset 0 -3px 5px rgba(0, 0, 0, 0.2);
+    outline: none;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Hover Effect */
+button:hover {
+    background: linear-gradient(135deg, #feb47b, #ff7e5f); /* Reverse gradient on hover */
+    transform: translateY(-3px); /* Lift effect */
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.4), inset 0 -3px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* Active/Pressed Effect */
+button:active {
+    transform: translateY(2px); /* Press down effect */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Additional Glow Effect */
+button:focus {
+    outline: none;
+    box-shadow: 0 0 10px 3px rgba(255, 126, 95, 0.6), 0 6px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Recording Button Specific */
+#toggle-recording {
+    background: linear-gradient(135deg, #ff3e4d, #ff6f61); /* Vibrant red gradient */
+    box-shadow: 0 4px 6px rgba(255, 63, 77, 0.4), inset 0 -3px 5px rgba(255, 63, 77, 0.2);
+    padding: 20px 40px; /* Increase padding for larger size */
+    font-size: 1.5em; /* Increase font size for visibility */
+    border-radius: 12px; /* Slightly larger rounded corners */
+    width: 100%; /* Optional: make it span the entire container width */
+    max-width: 300px; /* Optional: set a max width for control */
+    display: block; /* Ensure it behaves like a block element */
+    margin: 20px auto; /* Center the button horizontally */
+}
+
+/* Hover Effect */
+#toggle-recording:hover {
+    background: linear-gradient(135deg, #ff6f61, #ff3e4d); /* Reverse gradient on hover */
+    box-shadow: 0 6px 8px rgba(255, 63, 77, 0.6), inset 0 -3px 5px rgba(255, 63, 77, 0.3);
+}
+
+/* Active/Pressed Effect */
+#toggle-recording:active {
+    transform: translateY(3px); /* Slight press-down effect */
+    box-shadow: 0 2px 4px rgba(255, 63, 77, 0.4), inset 0 2px 3px rgba(255, 63, 77, 0.3);
+}
+
+
+select {
+    background: linear-gradient(135deg, #3e4bff, #6f61ff); /* Blue gradient background */
+    color: #ffffff; /* White text color */
+    font-size: 1.1em;
+    border: 1px solid #555;
+    border-radius: 5px;
+    padding: 10px;
+    width: 100%;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Dropdown Option Styling */
+select option {
+    background-color: #3e4bff; /* Solid background color for options */
+    color: #ffffff; /* White text for visibility */
+}
+
+/* Hover Effect for Dropdown */
+select:hover {
+    background: linear-gradient(135deg, #6f61ff, #3e4bff); /* Reverse gradient on hover */
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Focused Dropdown */
+select:focus {
+    outline: none;
+    box-shadow: 0 0 10px 3px rgba(62, 75, 255, 0.6), 0 6px 8px rgba(0, 0, 0, 0.4);
+}
+
+#status {
+    padding: 10px;
+    color: white;
+    border-radius: 5px;
+}
+.connected {
+    background-color: rgb(34, 180, 107);
+}
+.disconnected {
+    background-color: rgb(218, 87, 111);
+}
+
+#category-buttons {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.category-btn {
+    margin: 0 10px;
+    padding: 10px 20px;
+    background-color: #f4f4f4;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.category-btn:hover {
+    background-color: #e2e2e2;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .side-nav {
+        width: 200px;
+        padding: 15px;
+    }
+
+    main h1 {
+        font-size: 2em;
+    }
+
+    #category-content {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+}
