@@ -42,7 +42,7 @@ function formatTimestamp(timestamp, ago) {
         timeString += `${seconds} second${seconds !== 1 ? 's' : ''}`;
     }
 
-    if (ago)
+    if (ago == true)
     {
         return timeString + " ago";
     }

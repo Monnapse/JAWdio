@@ -81,7 +81,7 @@ function updateCategories(data) {
                             const formattedTime = formatTimestamp(timestamp);
                             $('#' + sanitizedCategory).append(`<button data-filename="${file}" class="audio-file-button" onclick="playAudio('${category}/${file}')">${formattedTime}</button>`);
                             var newButton = $('#' + sanitizedCategory).find('button[data-filename="' + file + '"]');
-                            addTimestamp(newButton, timestamp);
+                            addTimestamp(newButton, timestamp, true);
                         }
                         else 
                         {
