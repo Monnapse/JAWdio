@@ -81,10 +81,10 @@ def play_audio(filename):
                     audio_duration = len(data) / samplerate
                     start_time = time.time()
 
-                    print(audio_duration)
+                    #print(audio_duration)
                     try:
                         socketio.emit('audio_duration', {'duration': audio_duration}, namespace='/')
-                        print("Emitted audio_duration")
+                        #print("Emitted audio_duration")
                     except Exception as e:
                         print(f"Failed to emit audio_duration: {e}")
 

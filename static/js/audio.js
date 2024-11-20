@@ -104,7 +104,7 @@ function updateCategories(data) {
                 // If a category is empty after removing files, remove the category itself
                 if ($('#' + sanitizedCategory + ' .audio-file-button').length === 0) {
                     $('#' + sanitizedCategory).remove();
-                    $(`button[onclick="switchCategory('${sanitizedCategory}')"]`).remove();
+                    $(`button[onclick="switchCategory('${category}')"]`).remove();
                 }
             });
         }
