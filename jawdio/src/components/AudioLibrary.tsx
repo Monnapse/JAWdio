@@ -6,13 +6,12 @@ import {
   ChevronRight, ChevronDown, Keyboard, Type, Move, Scissors
 } from 'lucide-react';
 
-export default function AudioLibrary() {
+export default function AudioLibrary({ filterMode = 'default' }: { filterMode?: 'default' | 'board' | 'studio' }) {
   const { sounds, loadSounds, handleButtonClick, handleDeleteSound, hotkeys, setHotkeys } = useAudio();
   const [library, setLibrary] = useState<Record<string, any[]>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Modals & UI States
   const [isDraggingExternal, setIsDraggingExternal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
@@ -23,7 +22,7 @@ export default function AudioLibrary() {
   const [bindingTarget, setBindingTarget] = useState<string | null>(null);
 
   const fetchLibrary = useCallback(async () => {
-    const res = await fetch('/api/sounds');
+    const res = await fetch(`/api/sounds?t=${Date.now()}`);
     const data = await res.json();
     setLibrary(data.library);
     if (Object.keys(expanded).length === 0) {
@@ -35,7 +34,6 @@ export default function AudioLibrary() {
 
   useEffect(() => { fetchLibrary(); }, [sounds, fetchLibrary]);
 
-  // --- GLOBAL EXTERNAL DRAG & DROP ---
   useEffect(() => {
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
@@ -73,7 +71,6 @@ export default function AudioLibrary() {
     };
   }, [loadSounds]);
 
-  // --- INTERNAL DRAG & DROP (Moving Categories) ---
   const onDragStart = (e: React.DragEvent, filename: string) => {
     e.dataTransfer.setData("filename", filename);
   };
@@ -84,7 +81,7 @@ export default function AudioLibrary() {
     if (filename) {
       await fetch('/api/sounds', { 
         method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, // Added Header
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'MOVE_SOUND', filename, toCategory }) 
       });
       fetchLibrary();
@@ -92,7 +89,6 @@ export default function AudioLibrary() {
     }
   };
 
-  // --- HOTKEY LOGIC ---
   useEffect(() => {
     if (!bindingTarget) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -128,26 +124,31 @@ export default function AudioLibrary() {
     if (!renameValue || !targetFile) return;
     await fetch('/api/sounds', { 
       method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, // Added Header
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'RENAME_SOUND', filename: targetFile, newName: renameValue }) 
     });
     setShowRenameModal(false); setTargetFile(null); fetchLibrary(); loadSounds();
   };
 
   const filteredLibrary = useMemo(() => {
-    if (!searchQuery) return library;
     const filtered: Record<string, any[]> = {};
     Object.entries(library).forEach(([cat, items]) => {
-      const matches = items.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      // Filter Logic for Studio/Board Separation
+      if (filterMode === 'board' && cat === 'Studio Clips') return;
+      if (filterMode === 'studio' && cat !== 'Studio Clips') return;
+
+      const matches = items.filter(i => {
+         if (!searchQuery) return true;
+         return i.name.toLowerCase().includes(searchQuery.toLowerCase());
+      });
       if (matches.length > 0) filtered[cat] = matches;
     });
     return filtered;
-  }, [library, searchQuery]);
+  }, [library, searchQuery, filterMode]);
 
   return (
     <div className="space-y-8 relative pb-24" onClick={() => setContextMenu(null)}>
       
-      {/* GLOBAL DROP OVERLAY */}
       {isDraggingExternal && (
         <div className="fixed inset-0 bg-indigo-600/10 backdrop-blur-md border-4 border-dashed border-indigo-500/50 z-[1000] flex items-center justify-center pointer-events-none">
           <div className="bg-[#0f0f13] p-10 rounded-3xl border border-white/10 shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 duration-200">
@@ -158,7 +159,6 @@ export default function AudioLibrary() {
         </div>
       )}
 
-      {/* BINDING PILL */}
       {bindingTarget && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-indigo-600 px-6 py-4 rounded-full shadow-2xl z-[300] flex items-center gap-4 border border-white/20 animate-in slide-in-from-bottom">
           <Keyboard size={18} className="text-white animate-pulse" />
@@ -167,7 +167,6 @@ export default function AudioLibrary() {
         </div>
       )}
 
-      {/* RENAME MODAL - Fixed bubbling and removed autoFocus */}
       {showRenameModal && (
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[500] flex items-center justify-center p-6"
@@ -193,7 +192,6 @@ export default function AudioLibrary() {
         </div>
       )}
 
-      {/* SEARCH & ACTIONS */}
       <div className="flex justify-between items-center gap-6">
         <div className="relative w-96 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-indigo-500" size={18} />
@@ -204,7 +202,6 @@ export default function AudioLibrary() {
         </button>
       </div>
 
-      {/* GRID */}
       <div className="space-y-12">
         {Object.entries(filteredLibrary).map(([catName, catSounds]) => (
           <div key={catName} onDragOver={(e) => e.preventDefault()} onDrop={(e) => onDropOnCategory(e, catName)}>
@@ -232,7 +229,6 @@ export default function AudioLibrary() {
                   </div>
                 ))}
                 
-                {/* Upload Tile */}
                 <label className="aspect-square flex flex-col items-center justify-center p-5 border-2 border-dashed border-white/5 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all cursor-pointer group">
                   <UploadCloud size={20} className="text-white/10 group-hover:text-indigo-500 mb-2" />
                   <span className="text-[8px] font-black uppercase text-white/10 group-hover:text-white text-center">Add to {catName}</span>
@@ -250,7 +246,6 @@ export default function AudioLibrary() {
         ))}
       </div>
 
-      {/* CONTEXT MENU - Fixed bubbling & setTimeout delay for confirm() */}
       {contextMenu && (
         <div 
           className="fixed bg-[#1a1a1f] border border-white/10 shadow-2xl py-2 w-56 z-[600] overflow-hidden" 
@@ -278,11 +273,9 @@ export default function AudioLibrary() {
             <Type size={14}/> Rename
           </button>
           
-         <button onClick={(e) => { 
-            e.stopPropagation();
-            const fileToDelete = contextMenu.file; // <--- Safely capture the file path first
+          <button onClick={() => { 
+            const fileToDelete = contextMenu.file; 
             setContextMenu(null); 
-            
             setTimeout(() => {
               if(confirm('Are you sure you want to delete this sound?')) {
                 handleDeleteSound(fileToDelete);

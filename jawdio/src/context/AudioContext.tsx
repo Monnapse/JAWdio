@@ -5,7 +5,8 @@ import { JAWDIO_VERSION, GITHUB_REPO } from '@/lib/version';
 interface SoundFile { name: string; filename: string; category: string; }
 
 interface AudioContextType {
-  status: string; isHost: boolean; sounds: SoundFile[]; cableName: string; mics: MediaDeviceInfo[];
+  status: string; isHost: boolean; sounds: SoundFile[]; cableName: string; 
+  mics: MediaDeviceInfo[]; outputs: MediaDeviceInfo[];
   micVolume: number; setMicVolume: (v: number) => void;
   soundVolume: number; setSoundVolume: (v: number) => void;
   activeMicId: string; hotkeys: Record<string, string>; setHotkeys: (h: Record<string, string>) => void;
@@ -24,6 +25,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const [sounds, setSounds] = useState<SoundFile[]>([]);
   const [cableName, setCableName] = useState('Scanning...');
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
+  const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
   const [micVolume, setMicVolume] = useState(1);
   const [soundVolume, setSoundVolume] = useState(1);
   const [activeMicId, setActiveMicId] = useState("none");
@@ -35,7 +37,6 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const micAudioRef = useRef<HTMLAudioElement>(null);
   const activeSoundsRef = useRef<Set<HTMLAudioElement>>(new Set());
   
-  // Keep volume data fresh for the background IPC event listener
   const soundVolumeRef = useRef(soundVolume);
   const ipcRegisteredRef = useRef(false);
 
@@ -43,9 +44,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => { if (micAudioRef.current) micAudioRef.current.volume = micVolume; }, [micVolume]);
   useEffect(() => { activeSoundsRef.current.forEach(a => { a.volume = soundVolume; }); }, [soundVolume]);
 
- const loadSounds = async () => {
+  const loadSounds = async () => {
     try {
-      // Added a timestamp query to force fresh, un-cached data
       const res = await fetch(`/api/sounds?t=${Date.now()}`); 
       const data = await res.json();
       setSounds(Object.values(data.library).flat() as SoundFile[]);
@@ -55,7 +55,6 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    // Check for updates on mount
     const checkUpdates = async () => {
       try {
         const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
@@ -88,7 +87,6 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
 
       setupAudioDevices();
       
-      // Prevent double registration in Next.js Strict Mode
       if (!ipcRegisteredRef.current) {
         ipcRegisteredRef.current = true;
         window.electronAPI.onTriggerSound((f: string) => f === '__STOP_ALL__' ? handleStopClickLocally() : playAudioLocally(f));
@@ -101,7 +99,9 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const cable = devices.find(d => d.kind === 'audiooutput' && d.label.toLowerCase().includes('cable input'));
     if (cable) { setCableName(cable.label); virtualCableIdRef.current = cable.deviceId; }
+    
     setMics(devices.filter(d => d.kind === 'audioinput' && d.deviceId !== 'default'));
+    setOutputs(devices.filter(d => d.kind === 'audiooutput' && d.deviceId !== 'default'));
   };
 
   const handleMicChange = async (id: string) => {
@@ -130,7 +130,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const safePath = filename.split('/').map(encodeURIComponent).join('/');
       const audio = new Audio(`/sounds/${safePath}`);
-      audio.volume = soundVolumeRef.current; // Use Ref so hotkeys play at correct volume!
+      audio.volume = soundVolumeRef.current;
       
       if (virtualCableIdRef.current && typeof (audio as any).setSinkId === 'function') {
         await (audio as any).setSinkId(virtualCableIdRef.current);
@@ -176,7 +176,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AudioContext.Provider value={{ 
-      status, isHost, sounds, cableName, mics, micVolume, setMicVolume, soundVolume, setSoundVolume, 
+      status, isHost, sounds, cableName, mics, outputs, micVolume, setMicVolume, soundVolume, setSoundVolume, 
       activeMicId, hotkeys, setHotkeys, loadSounds, handleMicChange, playAudioLocally, handleStopClick, 
       handleButtonClick, handleDeleteSound, hasUpdate, latestVersion
     }}>

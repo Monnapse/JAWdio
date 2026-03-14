@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAudio } from '@/context/AudioContext';
-import { LayoutGrid, Settings2, Square } from 'lucide-react';
+import { LayoutGrid, Settings2, Square, MicVocal } from 'lucide-react';
 
 export default function Sidebar({ isOpen, toggle }: { isOpen: boolean, toggle: () => void }) {
   const pathname = usePathname();
@@ -20,6 +20,11 @@ export default function Sidebar({ isOpen, toggle }: { isOpen: boolean, toggle: (
           <Link href="/" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-4 rounded-2xl font-bold transition-all ${pathname === '/' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-white/30 hover:bg-white/5 hover:text-white'}`}>
             <LayoutGrid size={20} /> Soundboard
           </Link>
+          
+          <Link href="/studio" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-4 rounded-2xl font-bold transition-all ${pathname === '/studio' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-white/30 hover:bg-white/5 hover:text-white'}`}>
+            <MicVocal size={20} /> Clipper Studio
+          </Link>
+
           {isHost && (
             <Link href="/settings" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-4 rounded-2xl font-bold transition-all ${pathname === '/settings' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-white/30 hover:bg-white/5 hover:text-white'}`}>
               <Settings2 size={20} /> Settings
