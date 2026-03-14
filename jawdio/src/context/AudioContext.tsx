@@ -14,10 +14,6 @@ interface AudioContextType {
   handleButtonClick: (filename: string, isEditMode: boolean, setBindingTarget: (f: string) => void) => void;
   handleDeleteSound: (filename: string) => Promise<void>;
   hasUpdate: boolean; latestVersion: string;
-  
-  // NEW: Server States
-  serverRunning: boolean; serverIp: string; serverPort: string;
-  setServerPort: (p: string) => void; toggleServer: () => Promise<void>;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -35,32 +31,50 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const [hasUpdate, setHasUpdate] = useState(false);
   const [latestVersion, setLatestVersion] = useState("");
 
-  // SERVER STATES
-  const [serverRunning, setServerRunning] = useState(false);
-  const [serverIp, setServerIp] = useState("127.0.0.1");
-  const [serverPort, setServerPort] = useState("8080");
-
   const virtualCableIdRef = useRef<string | null>(null);
   const micAudioRef = useRef<HTMLAudioElement>(null);
   const activeSoundsRef = useRef<Set<HTMLAudioElement>>(new Set());
+  
+  // Keep volume data fresh for the background IPC event listener
+  const soundVolumeRef = useRef(soundVolume);
+  const ipcRegisteredRef = useRef(false);
 
-  // ... (Keep existing useEffects for Volume, loadSounds, checkUpdates)
+  useEffect(() => { soundVolumeRef.current = soundVolume; }, [soundVolume]);
   useEffect(() => { if (micAudioRef.current) micAudioRef.current.volume = micVolume; }, [micVolume]);
   useEffect(() => { activeSoundsRef.current.forEach(a => { a.volume = soundVolume; }); }, [soundVolume]);
 
-  const loadSounds = async () => {
+ const loadSounds = async () => {
     try {
-      const res = await fetch('/api/sounds');
+      // Added a timestamp query to force fresh, un-cached data
+      const res = await fetch(`/api/sounds?t=${Date.now()}`); 
       const data = await res.json();
       setSounds(Object.values(data.library).flat() as SoundFile[]);
-    } catch (e) {}
+    } catch (e) {
+      console.error("Failed to load sounds:", e);
+    }
   };
 
   useEffect(() => {
-    const savedKeys = localStorage.getItem('jawdio-hotkeys');
-    const savedPort = localStorage.getItem('jawdio-port') || "8080";
-    setServerPort(savedPort);
+    // Check for updates on mount
+    const checkUpdates = async () => {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.tag_name) {
+          const latest = data.tag_name.replace('v', '');
+          if (latest !== JAWDIO_VERSION) {
+            setLatestVersion(latest);
+            setHasUpdate(true);
+          }
+        }
+      } catch (error) {
+        console.error("Update check failed:", error);
+      }
+    };
+    checkUpdates();
 
+    const savedKeys = localStorage.getItem('jawdio-hotkeys');
     const isElectron = typeof window !== 'undefined' && window.electronAPI;
     
     if (isElectron) {
@@ -71,35 +85,17 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         window.electronAPI.clearHotkeys();
         Object.entries(parsed).forEach(([f, k]) => window.electronAPI.registerHotkey(k as string, f));
       }
-      
-      // Get initial server IP
-      window.electronAPI.getServerStatus().then((s: any) => {
-        setServerRunning(s.isRunning);
-        setServerIp(s.ip);
-      });
 
       setupAudioDevices();
-      window.electronAPI.onTriggerSound((f: string) => f === '__STOP_ALL__' ? handleStopClickLocally() : playAudioLocally(f));
+      
+      // Prevent double registration in Next.js Strict Mode
+      if (!ipcRegisteredRef.current) {
+        ipcRegisteredRef.current = true;
+        window.electronAPI.onTriggerSound((f: string) => f === '__STOP_ALL__' ? handleStopClickLocally() : playAudioLocally(f));
+      }
     }
     loadSounds();
   }, []);
-
-  const toggleServer = async () => {
-    if (!window.electronAPI) return;
-    if (serverRunning) {
-      await window.electronAPI.stopServer();
-      setServerRunning(false);
-    } else {
-      localStorage.setItem('jawdio-port', serverPort);
-      const res = await window.electronAPI.startServer(parseInt(serverPort));
-      if (res.success) {
-        setServerRunning(true);
-        setServerIp(res.ip);
-      } else {
-        alert("Failed to start server: " + res.error);
-      }
-    }
-  };
 
   const setupAudioDevices = async () => {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -108,13 +104,57 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     setMics(devices.filter(d => d.kind === 'audioinput' && d.deviceId !== 'default'));
   };
 
-  const handleMicChange = async (id: string) => { /* Keep existing */ };
-  const playAudioLocally = async (filename: string) => { /* Keep existing */ };
-  const handleStopClickLocally = () => { /* Keep existing */ };
+  const handleMicChange = async (id: string) => {
+    setActiveMicId(id);
+    if (id === 'none') {
+      if (micAudioRef.current) micAudioRef.current.srcObject = null;
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: id }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+      if (micAudioRef.current) {
+        micAudioRef.current.srcObject = stream;
+        if (virtualCableIdRef.current && typeof (micAudioRef.current as any).setSinkId === 'function') {
+          await (micAudioRef.current as any).setSinkId(virtualCableIdRef.current);
+        }
+        micAudioRef.current.play();
+      }
+    } catch (err) {
+      console.error("Error connecting mic:", err);
+    }
+  };
+
+  const playAudioLocally = async (filename: string) => {
+    try {
+      const safePath = filename.split('/').map(encodeURIComponent).join('/');
+      const audio = new Audio(`/sounds/${safePath}`);
+      audio.volume = soundVolumeRef.current; // Use Ref so hotkeys play at correct volume!
+      
+      if (virtualCableIdRef.current && typeof (audio as any).setSinkId === 'function') {
+        await (audio as any).setSinkId(virtualCableIdRef.current);
+      }
+      
+      activeSoundsRef.current.add(audio);
+      audio.onended = () => activeSoundsRef.current.delete(audio);
+      await audio.play();
+    } catch (error) {
+      console.error("Error playing audio:", error);
+    }
+  };
+
+  const handleStopClickLocally = () => {
+    activeSoundsRef.current.forEach(audio => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+    activeSoundsRef.current.clear();
+  };
 
   const handleStopClick = async () => {
     if (isHost) handleStopClickLocally();
-    else try { await fetch(`http://${window.location.hostname}:${serverPort}/play/__STOP_ALL__`); } catch(e) {}
+    else try { await fetch(`http://${window.location.hostname}:8080/play/__STOP_ALL__`); } catch(e) {}
   };
 
   const handleButtonClick = async (filename: string, isEditMode: boolean, setBindingTarget: (f: string) => void) => {
@@ -124,13 +164,13 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       try {
         const safePath = filename.split('/').map(encodeURIComponent).join('/');
-        await fetch(`http://${window.location.hostname}:${serverPort}/play/${safePath}`);
+        await fetch(`http://${window.location.hostname}:8080/play/${safePath}`);
       } catch (err) { console.error(err); }
     }
   };
 
   const handleDeleteSound = async (filename: string) => {
-    await fetch('/api/sounds', { method: 'DELETE', body: JSON.stringify({ filename }) });
+    await fetch('/api/sounds', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename }) });
     loadSounds();
   };
 
@@ -138,8 +178,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     <AudioContext.Provider value={{ 
       status, isHost, sounds, cableName, mics, micVolume, setMicVolume, soundVolume, setSoundVolume, 
       activeMicId, hotkeys, setHotkeys, loadSounds, handleMicChange, playAudioLocally, handleStopClick, 
-      handleButtonClick, handleDeleteSound, hasUpdate, latestVersion,
-      serverRunning, serverIp, serverPort, setServerPort, toggleServer // Exposed to UI
+      handleButtonClick, handleDeleteSound, hasUpdate, latestVersion
     }}>
       <audio ref={micAudioRef} className="hidden" />
       {children}

@@ -11,7 +11,7 @@ export default function SettingsPage() {
   } = useAudio();
 
   return (
-    <div className="p-8 lg:p-12 max-w-4xl mx-auto">
+    <div className="p-8 lg:p-12 max-w-4xl mx-auto pb-24">
       <div className="mb-12">
         <h2 className="text-4xl font-black italic tracking-tighter">MIXER</h2>
         <p className="text-white/20 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Audio I/O Configuration</p>

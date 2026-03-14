@@ -2,24 +2,11 @@ const { app, BrowserWindow, globalShortcut, ipcMain } = require('electron');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const http = require('http');
-const os = require('os');
+
+// --- BYPASS CHROME AUTOPLAY POLICY ---
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let mainWindow;
-let expressServer = null; // Tracks if the server is running
-
-// Auto-detect local IP address
-function getLocalIp() {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
-    }
-  }
-  return '127.0.0.1';
-}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -50,7 +37,7 @@ ipcMain.on('register-hotkey', (event, { key, filename }) => {
 
 ipcMain.on('clear-hotkeys', () => globalShortcut.unregisterAll());
 
-// --- DYNAMIC WEB REMOTE SERVER ---
+// --- NORMAL WEB SERVER (AUTO-START) ---
 const expressApp = express();
 expressApp.use(cors());
 
@@ -63,35 +50,9 @@ const handleRemotePlay = (req, res) => {
 expressApp.get('/play/:file', handleRemotePlay);
 expressApp.get('/play/:folder/:file', handleRemotePlay);
 
-// IPC Handlers for React to control the server
-ipcMain.handle('start-server', async (event, port) => {
-  if (expressServer) return { success: false, error: 'Already running' };
-  return new Promise((resolve) => {
-    try {
-      expressServer = http.createServer(expressApp);
-      expressServer.listen(port, '0.0.0.0', () => {
-        resolve({ success: true, ip: getLocalIp(), port });
-      });
-      expressServer.on('error', (err) => {
-        expressServer = null;
-        resolve({ success: false, error: err.message });
-      });
-    } catch (err) { resolve({ success: false, error: err.message }); }
-  });
-});
-
-ipcMain.handle('stop-server', async () => {
-  if (!expressServer) return { success: true };
-  return new Promise((resolve) => {
-    expressServer.close(() => {
-      expressServer = null;
-      resolve({ success: true });
-    });
-  });
-});
-
-ipcMain.handle('get-server-status', () => {
-  return { isRunning: !!expressServer, ip: getLocalIp() };
+// Auto-start the remote deck server
+expressApp.listen(8080, '0.0.0.0', () => {
+  console.log('Remote web server is listening on port 8080');
 });
 
 app.whenReady().then(createWindow);

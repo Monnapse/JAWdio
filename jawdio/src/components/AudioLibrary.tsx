@@ -84,6 +84,7 @@ export default function AudioLibrary() {
     if (filename) {
       await fetch('/api/sounds', { 
         method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, // Added Header
         body: JSON.stringify({ action: 'MOVE_SOUND', filename, toCategory }) 
       });
       fetchLibrary();
@@ -125,7 +126,11 @@ export default function AudioLibrary() {
 
   const handleRename = async () => {
     if (!renameValue || !targetFile) return;
-    await fetch('/api/sounds', { method: 'POST', body: JSON.stringify({ action: 'RENAME_SOUND', filename: targetFile, newName: renameValue }) });
+    await fetch('/api/sounds', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, // Added Header
+      body: JSON.stringify({ action: 'RENAME_SOUND', filename: targetFile, newName: renameValue }) 
+    });
     setShowRenameModal(false); setTargetFile(null); fetchLibrary(); loadSounds();
   };
 
@@ -162,12 +167,24 @@ export default function AudioLibrary() {
         </div>
       )}
 
-      {/* RENAME MODAL */}
+      {/* RENAME MODAL - Fixed bubbling and removed autoFocus */}
       {showRenameModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[500] flex items-center justify-center p-6">
-          <div className="bg-[#1a1a1f] p-8 border border-white/5 w-full max-w-sm">
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[500] flex items-center justify-center p-6"
+          onClick={() => setShowRenameModal(false)}
+        >
+          <div 
+            className="bg-[#1a1a1f] p-8 border border-white/5 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-black italic text-white mb-6 uppercase tracking-tighter">Rename Sound</h3>
-            <input autoFocus type="text" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleRename()} className="w-full bg-[#09090b] border border-white/10 p-4 text-white font-bold mb-6 focus:border-indigo-500 outline-none" />
+            <input 
+              type="text" 
+              value={renameValue} 
+              onChange={(e) => setRenameValue(e.target.value)} 
+              onKeyDown={(e) => e.key === 'Enter' && handleRename()} 
+              className="w-full bg-[#09090b] border border-white/10 p-4 text-white font-bold mb-6 focus:border-indigo-500 outline-none" 
+            />
             <div className="flex gap-3">
               <button onClick={() => setShowRenameModal(false)} className="flex-1 py-3 text-[10px] font-black uppercase text-white/40">Cancel</button>
               <button onClick={handleRename} className="flex-1 py-3 bg-indigo-600 text-white text-[10px] font-black uppercase">Save</button>
@@ -203,7 +220,7 @@ export default function AudioLibrary() {
                 {catSounds.map((sound) => (
                   <div
                     key={sound.filename} draggable onDragStart={(e) => onDragStart(e, sound.filename)}
-                    onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, file: sound.filename }); }}
+                    onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, file: sound.filename }); }}
                     onClick={() => handleButtonClick(sound.filename, false, () => {})}
                     className="relative aspect-square flex flex-col items-center justify-center p-5 bg-[#16161a] border border-white/5 hover:border-indigo-500/40 hover:bg-[#1c1c21] cursor-pointer group"
                   >
@@ -233,14 +250,47 @@ export default function AudioLibrary() {
         ))}
       </div>
 
-      {/* CONTEXT MENU */}
+      {/* CONTEXT MENU - Fixed bubbling & setTimeout delay for confirm() */}
       {contextMenu && (
-        <div className="fixed bg-[#1a1a1f] border border-white/10 shadow-2xl py-2 w-56 z-[600] overflow-hidden" style={{ top: contextMenu.y, left: contextMenu.x }}>
+        <div 
+          className="fixed bg-[#1a1a1f] border border-white/10 shadow-2xl py-2 w-56 z-[600] overflow-hidden" 
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="px-4 py-2 text-[9px] font-black text-white/20 uppercase tracking-widest border-b border-white/5 mb-1">Actions</div>
-          <button onClick={() => setBindingTarget(contextMenu.file)} className="w-full text-left px-4 py-2.5 text-xs font-bold text-white/60 hover:text-white hover:bg-indigo-600 flex items-center gap-3"><Keyboard size={14}/> Set Keybind</button>
-          {hotkeys[contextMenu.file] && <button onClick={() => { saveHotkey(contextMenu.file, null); setContextMenu(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-amber-500/60 hover:text-amber-500 hover:bg-amber-500/10 flex items-center gap-3"><Scissors size={14}/> Remove Keybind</button>}
-          <button onClick={() => { setTargetFile(contextMenu.file); setRenameValue(contextMenu.file.split('/').pop()?.replace(/\.[^/.]+$/, "") || ""); setShowRenameModal(true); setContextMenu(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-white/60 hover:text-white hover:bg-indigo-600 flex items-center gap-3"><Type size={14}/> Rename</button>
-          <button onClick={() => { if(confirm('Delete?')) handleDeleteSound(contextMenu.file); setContextMenu(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500/60 hover:text-red-500 hover:bg-red-500/10 flex items-center gap-3"><Trash2 size={14}/> Delete</button>
+          
+          <button onClick={() => { setBindingTarget(contextMenu.file); setContextMenu(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-white/60 hover:text-white hover:bg-indigo-600 flex items-center gap-3">
+            <Keyboard size={14}/> Set Keybind
+          </button>
+          
+          {hotkeys[contextMenu.file] && (
+            <button onClick={() => { saveHotkey(contextMenu.file, null); setContextMenu(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-amber-500/60 hover:text-amber-500 hover:bg-amber-500/10 flex items-center gap-3">
+              <Scissors size={14}/> Remove Keybind
+            </button>
+          )}
+          
+          <button onClick={() => { 
+            setTargetFile(contextMenu.file); 
+            setRenameValue(contextMenu.file.split('/').pop()?.replace(/\.[^/.]+$/, "") || ""); 
+            setShowRenameModal(true); 
+            setContextMenu(null); 
+          }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-white/60 hover:text-white hover:bg-indigo-600 flex items-center gap-3">
+            <Type size={14}/> Rename
+          </button>
+          
+         <button onClick={(e) => { 
+            e.stopPropagation();
+            const fileToDelete = contextMenu.file; // <--- Safely capture the file path first
+            setContextMenu(null); 
+            
+            setTimeout(() => {
+              if(confirm('Are you sure you want to delete this sound?')) {
+                handleDeleteSound(fileToDelete);
+              }
+            }, 50);
+          }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500/60 hover:text-red-500 hover:bg-red-500/10 flex items-center gap-3">
+            <Trash2 size={14}/> Delete
+          </button>
         </div>
       )}
     </div>
