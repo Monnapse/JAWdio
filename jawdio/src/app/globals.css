@@ -1,0 +1,37 @@
+/* app/globals.css */
+@import "tailwindcss";
+
+html, body {
+  background: #09090b;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* JAWdio Master Wrapper - Sharp edges */
+.jawdio-layout {
+  @apply flex h-screen w-screen bg-[#09090b] overflow-hidden;
+}
+
+/* Content Area - No more rounding, just a clean border separator */
+.content-area {
+  @apply flex-1 flex flex-col bg-[#09090b] border-l border-white/5 overflow-hidden;
+}
+
+/* Keep the scrollbars thin and minimal */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.2);
+}
