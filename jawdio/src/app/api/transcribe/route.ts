@@ -9,8 +9,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // 1. Put your free Groq API key here (or in a .env.local file)
-    const groqApiKey = "gsk_YOUR_FREE_API_KEY_HERE";
+    const groqApiKey = process.env.GROQ_API_KEY;
+
+    if (!groqApiKey) {
+      return NextResponse.json({ error: "API key not configured" }, { status: 500 });
+    }
 
     const groqFormData = new FormData();
     groqFormData.append('file', file);
@@ -24,6 +27,7 @@ export async function POST(req: Request) {
     });
 
     const data = await response.json();
+    console.log("Groq API Response:", data);
     
     if (data.text) {
       return NextResponse.json({ text: data.text });

@@ -6,7 +6,6 @@ import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import { Bookmark, Scissors, Save, Play, Pause, Loader2, Type } from 'lucide-react';
 import AudioLibrary from '@/components/AudioLibrary';
 
-// --- STUDIO-GRADE AUDIO ENCODER ---
 const encodeWAV = (audioBuffer: AudioBuffer) => {
   const numOfChan = audioBuffer.numberOfChannels;
   const length = audioBuffer.length * numOfChan * 2 + 44;
@@ -56,20 +55,23 @@ const sliceAndExportAudio = async (blob: Blob, start: number, end: number) => {
   source.start(0, start, frameCount / sampleRate);
 
   const renderedBuffer = await offlineCtx.startRendering();
-  audioCtx.close();
+  
+  if (audioCtx.state !== 'closed') await audioCtx.close();
+  
   return encodeWAV(renderedBuffer);
 };
 
 
 export default function StudioPage() {
-  const { mics, outputs, loadSounds } = useAudio();
+  const { mics, outputs, loadSounds, isHost } = useAudio();
   const [selectedDevice, setSelectedDevice] = useState('none');
   const [bufferTime] = useState(60); 
+  const [desktopSources, setDesktopSources] = useState<{id: string, name: string}[]>([]);
   
   const [isEngineRunning, setIsEngineRunning] = useState(false);
+  const originalStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   
-  // Audio Visualizer Refs (Live Scrolling Radar)
   const audioCtxRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -91,7 +93,17 @@ export default function StudioPage() {
   const wsRef = useRef<WaveSurfer | null>(null);
   const wsRegionsRef = useRef<any>(null);
 
-  // Initialize WaveSurfer with Draggable Regions
+  const toggleEngineRef = useRef<() => void>(() => {});
+  const markClipRef = useRef<() => void>(() => {});
+
+  // Fetch Desktop Sources on Mount
+  useEffect(() => {
+    const elApi = (window as any).electronAPI;
+    if (isHost && elApi && elApi.getDesktopSources) {
+      elApi.getDesktopSources().then(setDesktopSources);
+    }
+  }, [isHost]);
+
   useEffect(() => {
     if (workingBlob && waveformRef.current) {
       if (wsRef.current) wsRef.current.destroy();
@@ -101,7 +113,6 @@ export default function StudioPage() {
         cursorColor: '#ffffff', barWidth: 2, barGap: 1, height: 120, normalize: true,
       });
 
-      // Register the Draggable Regions Plugin
       wsRegionsRef.current = wsRef.current.registerPlugin(RegionsPlugin.create());
 
       const url = URL.createObjectURL(workingBlob);
@@ -112,16 +123,11 @@ export default function StudioPage() {
         setTrimStart(0);
         setTrimEnd(duration);
         
-        // Add the draggable overlay
         wsRegionsRef.current.addRegion({
-          start: 0,
-          end: duration,
-          color: 'rgba(79, 70, 229, 0.3)',
-          drag: true, resize: true,
+          start: 0, end: duration, color: 'rgba(79, 70, 229, 0.3)', drag: true, resize: true,
         });
       });
 
-      // Listen for when the user drags the edges!
       wsRegionsRef.current.on('region-updated', (region: any) => {
         setTrimStart(region.start);
         setTrimEnd(region.end);
@@ -140,32 +146,57 @@ export default function StudioPage() {
     }
   }, [workingBlob]);
 
-  const toggleEngine = async () => {
+  toggleEngineRef.current = async () => {
     if (isEngineRunning) {
       mediaRecorderRef.current?.stop();
-      mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+      originalStreamRef.current?.getTracks().forEach(t => t.stop()); // Ensure video track turns off
       setIsEngineRunning(false);
       
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      if (audioCtxRef.current) audioCtxRef.current.close();
       
-      // Clear the canvas
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        audioCtxRef.current.close().catch(() => {});
+      }
+      
       const canvas = canvasRef.current;
       if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
       return;
     }
 
-    if (selectedDevice === 'none') return alert("Select a Virtual Audio Cable Input to capture desktop audio!");
+    if (selectedDevice === 'none') return alert("Select a capture source!");
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: { exact: selectedDevice }, echoCancellation: false, noiseSuppression: false }
-      });
+      let stream: MediaStream;
+
+      if (selectedDevice.startsWith('desktop:')) {
+        const sourceId = selectedDevice.replace('desktop:', '');
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            mandatory: { chromeMediaSource: 'desktop' }
+          } as any,
+          video: {
+            mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sourceId }
+          } as any
+        });
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: selectedDevice }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+        });
+      }
+
+      originalStreamRef.current = stream;
+
+      // Extract ONLY the audio track for processing so we don't encode a massive video file
+      const audioTrack = stream.getAudioTracks()[0];
+      if (!audioTrack) {
+        stream.getTracks().forEach(t => t.stop());
+        return alert("Failed to grab audio track! If capturing a window, make sure it produces sound, or capture the Entire Screen.");
+      }
+      const audioStream = new MediaStream([audioTrack]);
       
-      // --- LIVE SCROLLING RADAR CANVAS ---
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioCtxRef.current = audioCtx;
-      const source = audioCtx.createMediaStreamSource(stream);
+      const source = audioCtx.createMediaStreamSource(audioStream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
       source.connect(analyser);
@@ -177,7 +208,6 @@ export default function StudioPage() {
         for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
         const avg = sum / dataArray.length;
         
-        // Push new volume, shift old volume to create a scrolling effect
         volumeHistoryRef.current.push(avg);
         volumeHistoryRef.current.shift();
 
@@ -190,7 +220,7 @@ export default function StudioPage() {
             
             volumeHistoryRef.current.forEach((val, index) => {
               const barHeight = (val / 128) * canvas.height;
-              ctx.fillStyle = '#4f46e5'; // Indigo color
+              ctx.fillStyle = '#4f46e5'; 
               ctx.fillRect(index * barWidth, canvas.height - barHeight, barWidth - 1, barHeight);
             });
           }
@@ -198,9 +228,8 @@ export default function StudioPage() {
         animationFrameRef.current = requestAnimationFrame(updateLevel);
       };
       updateLevel();
-      // -----------------------------------
 
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const recorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
       chunksRef.current = [];
       headerChunkRef.current = null;
 
@@ -220,16 +249,86 @@ export default function StudioPage() {
       setIsEngineRunning(true);
     } catch (err) {
       console.error(err);
-      alert("Failed to hook into audio. Remember to select a Virtual Cable!");
+      alert("Capture failed.");
     }
   };
 
-  const markClip = () => {
+  markClipRef.current = async () => {
     if (!headerChunkRef.current) return alert("Engine hasn't captured enough data yet.");
-    const blob = new Blob([headerChunkRef.current, ...chunksRef.current], { type: 'audio/webm' });
-    setWorkingBlob(blob);
-    setClipName("New Clip");
-    setTranscript("");
+    const webmBlob = new Blob([headerChunkRef.current, ...chunksRef.current], { type: 'audio/webm' });
+
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const arrayBuffer = await webmBlob.arrayBuffer();
+      const decodedData = await audioCtx.decodeAudioData(arrayBuffer);
+      
+      const wavBlob = encodeWAV(decodedData);
+      if (audioCtx.state !== 'closed') await audioCtx.close();
+
+      setWorkingBlob(wavBlob);
+      setClipName("New Clip");
+      setTranscript("");
+
+      await fetch('http://127.0.0.1:8080/handoff', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'audio/wav' },
+          body: wavBlob 
+      }).catch(e => console.error("Handoff push failed:", e));
+    } catch (err) {
+      console.error("Desktop failed to encode WAV for handoff:", err);
+      alert("Failed to process audio for remote handoff.");
+    }
+  };
+
+  useEffect(() => {
+    const elApi = (window as any).electronAPI;
+    if (isHost && elApi && elApi.onEngineCommand) {
+      elApi.onEngineCommand((cmd: string) => {
+        if (cmd === 'toggle') toggleEngineRef.current();
+        if (cmd === 'mark') markClipRef.current();
+      });
+    }
+  }, [isHost]);
+
+  const handleToggleClick = async () => {
+    if (isHost) {
+      await toggleEngineRef.current();
+    } else {
+      try {
+        await fetch(`http://${window.location.hostname}:8080/engine/toggle`);
+        setIsEngineRunning(!isEngineRunning);
+      } catch (err) {
+        alert("Failed to reach desktop client. Ensure JAWdio is running.");
+      }
+    }
+  };
+
+  const handleMarkClick = async () => {
+    if (!isEngineRunning && !isHost) return alert("Start the remote engine first.");
+    if (isHost) {
+      markClipRef.current();
+    } else {
+      try {
+        await fetch(`http://${window.location.hostname}:8080/engine/mark`);
+        setTimeout(async () => {
+          try {
+            const res = await fetch(`http://${window.location.hostname}:8080/handoff?t=${Date.now()}`);
+            if (res.ok) {
+              const blob = await res.blob();
+              setWorkingBlob(blob);
+              setClipName("Remote Clip");
+              setTranscript("");
+            } else {
+              alert("Desktop hasn't created buffer yet.");
+            }
+          } catch (e) {
+            console.error("Failed to grab remote buffer", e);
+          }
+        }, 1500); 
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 
   const transcribeClip = async () => {
@@ -263,7 +362,6 @@ export default function StudioPage() {
       fd.append('category', 'Studio Clips'); 
 
       await fetch('/api/upload', { method: 'POST', body: fd });
-      setWorkingBlob(null);
       loadSounds(); 
     } catch (err) {
       console.error(err);
@@ -280,31 +378,33 @@ export default function StudioPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ENGINE */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-[#16161a] p-8 border border-white/5 flex flex-col items-center">
             
             <select 
               className="w-full bg-[#09090b] text-white p-3 border border-white/10 outline-none text-xs font-bold mb-6"
-              value={selectedDevice} onChange={(e) => setSelectedDevice(e.target.value)} disabled={isEngineRunning}
+              value={selectedDevice} onChange={(e) => setSelectedDevice(e.target.value)} disabled={isEngineRunning || !isHost}
             >
-              <option value="none">Select Capture Source...</option>
-              <optgroup label="Inputs (Microphones / Virtual Cables)">
-                {mics.map(m => <option key={m.deviceId} value={m.deviceId}>{m.label}</option>)}
-              </optgroup>
-              <optgroup label="Outputs (Usually blocked by browser!)">
-                {outputs.map(o => <option key={o.deviceId} value={o.deviceId}>{o.label}</option>)}
-              </optgroup>
+              <option value="none">{!isHost ? 'Managed by Host Desktop...' : 'Select Capture Source...'}</option>
+              {isHost && (
+                <>
+                  <optgroup label="Screens & Apps">
+                    {desktopSources.map(s => <option key={s.id} value={`desktop:${s.id}`}>{s.name}</option>)}
+                  </optgroup>
+                  <optgroup label="Inputs (Microphones / Virtual Cables)">
+                    {mics.map(m => <option key={m.deviceId} value={m.deviceId}>{m.label}</option>)}
+                  </optgroup>
+                </>
+              )}
             </select>
 
-            {/* LIVE SCROLLING RADAR CANVAS */}
             <div className="w-full h-16 bg-[#09090b] border border-white/5 mb-6 overflow-hidden relative flex items-center justify-center">
               {!isEngineRunning && <span className="absolute text-[8px] font-black uppercase text-white/20 z-10 tracking-widest">ENGINE OFF</span>}
               <canvas ref={canvasRef} width={300} height={64} className="w-full h-full opacity-80" />
             </div>
 
             <button 
-              onClick={toggleEngine}
+              onClick={handleToggleClick}
               className={`w-full py-4 font-black text-[10px] uppercase tracking-widest transition-all mb-4 border ${
                 isEngineRunning ? 'bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/50 hover:bg-emerald-500/20'
               }`}
@@ -313,9 +413,9 @@ export default function StudioPage() {
             </button>
 
             <button 
-              onClick={markClip} disabled={!isEngineRunning}
+              onClick={handleMarkClick} disabled={!isEngineRunning && isHost}
               className={`w-32 h-32 rounded-full flex flex-col items-center justify-center gap-2 transition-all shadow-2xl ${
-                isEngineRunning ? 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'
+                (isEngineRunning || !isHost) ? 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer active:scale-95' : 'bg-white/5 text-white/20 cursor-not-allowed'
               }`}
             >
               <Bookmark size={32} />
@@ -324,7 +424,6 @@ export default function StudioPage() {
           </div>
         </div>
 
-        {/* EDITOR */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-[#16161a] p-8 border border-white/5 h-full flex flex-col">
             <div className="flex items-center justify-between mb-6">
@@ -343,7 +442,6 @@ export default function StudioPage() {
                 />
                 
                 <div className="bg-[#09090b] border border-white/10 rounded-xl overflow-hidden relative">
-                  {/* WaveSurfer will draw the waveform AND the draggable region overlay here */}
                   <div ref={waveformRef} className="w-full h-32" />
                 </div>
 
@@ -357,7 +455,6 @@ export default function StudioPage() {
                   </button>
                 </div>
 
-                {/* Transcription Box */}
                 <div className="bg-[#09090b] border border-white/5 p-4 relative">
                   <button 
                     onClick={transcribeClip} disabled={isTranscribing}

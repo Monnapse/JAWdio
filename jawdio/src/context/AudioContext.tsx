@@ -15,6 +15,7 @@ interface AudioContextType {
   handleButtonClick: (filename: string, isEditMode: boolean, setBindingTarget: (f: string) => void) => void;
   handleDeleteSound: (filename: string) => Promise<void>;
   hasUpdate: boolean; latestVersion: string;
+  hearOwnSounds: boolean; setHearOwnSounds: (v: boolean) => void;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -32,6 +33,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const [hotkeys, setHotkeys] = useState<Record<string, string>>({});
   const [hasUpdate, setHasUpdate] = useState(false);
   const [latestVersion, setLatestVersion] = useState("");
+  const [hearOwnSounds, setHearOwnSoundsState] = useState(false);
 
   const virtualCableIdRef = useRef<string | null>(null);
   const micAudioRef = useRef<HTMLAudioElement>(null);
@@ -39,8 +41,15 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   
   const soundVolumeRef = useRef(soundVolume);
   const ipcRegisteredRef = useRef(false);
+  const hearOwnSoundsRef = useRef(hearOwnSounds);
+
+  const setHearOwnSounds = (val: boolean) => {
+    setHearOwnSoundsState(val);
+    localStorage.setItem('jawdio-hear-sounds', JSON.stringify(val));
+  };
 
   useEffect(() => { soundVolumeRef.current = soundVolume; }, [soundVolume]);
+  useEffect(() => { hearOwnSoundsRef.current = hearOwnSounds; }, [hearOwnSounds]);
   useEffect(() => { if (micAudioRef.current) micAudioRef.current.volume = micVolume; }, [micVolume]);
   useEffect(() => { activeSoundsRef.current.forEach(a => { a.volume = soundVolume; }); }, [soundVolume]);
 
@@ -74,6 +83,9 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     checkUpdates();
 
     const savedKeys = localStorage.getItem('jawdio-hotkeys');
+    const savedHearSounds = localStorage.getItem('jawdio-hear-sounds');
+    if (savedHearSounds !== null) setHearOwnSoundsState(JSON.parse(savedHearSounds));
+
     const isElectron = typeof window !== 'undefined' && window.electronAPI;
     
     if (isElectron) {
@@ -129,16 +141,29 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const playAudioLocally = async (filename: string) => {
     try {
       const safePath = filename.split('/').map(encodeURIComponent).join('/');
-      const audio = new Audio(`/sounds/${safePath}`);
-      audio.volume = soundVolumeRef.current;
-      
-      if (virtualCableIdRef.current && typeof (audio as any).setSinkId === 'function') {
-        await (audio as any).setSinkId(virtualCableIdRef.current);
+      const playPromises = [];
+
+      // 1. ALWAYS play to the Virtual Cable Input
+      const cableAudio = new Audio(`/sounds/${safePath}`);
+      cableAudio.volume = soundVolumeRef.current;
+      if (virtualCableIdRef.current && typeof (cableAudio as any).setSinkId === 'function') {
+        await (cableAudio as any).setSinkId(virtualCableIdRef.current);
       }
-      
-      activeSoundsRef.current.add(audio);
-      audio.onended = () => activeSoundsRef.current.delete(audio);
-      await audio.play();
+      activeSoundsRef.current.add(cableAudio);
+      cableAudio.onended = () => activeSoundsRef.current.delete(cableAudio);
+      playPromises.push(cableAudio.play());
+
+      // 2. Play locally ONLY if "Hear My Own Sounds" is ON
+      if (hearOwnSoundsRef.current) {
+        const localAudio = new Audio(`/sounds/${safePath}`);
+        localAudio.volume = soundVolumeRef.current;
+        // Bypassing setSinkId defaults to your primary desktop speakers
+        activeSoundsRef.current.add(localAudio);
+        localAudio.onended = () => activeSoundsRef.current.delete(localAudio);
+        playPromises.push(localAudio.play());
+      }
+
+      await Promise.all(playPromises);
     } catch (error) {
       console.error("Error playing audio:", error);
     }
@@ -178,7 +203,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     <AudioContext.Provider value={{ 
       status, isHost, sounds, cableName, mics, outputs, micVolume, setMicVolume, soundVolume, setSoundVolume, 
       activeMicId, hotkeys, setHotkeys, loadSounds, handleMicChange, playAudioLocally, handleStopClick, 
-      handleButtonClick, handleDeleteSound, hasUpdate, latestVersion
+      handleButtonClick, handleDeleteSound, hasUpdate, latestVersion, hearOwnSounds, setHearOwnSounds
     }}>
       <audio ref={micAudioRef} className="hidden" />
       {children}

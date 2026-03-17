@@ -1,13 +1,13 @@
 'use client';
 import { useAudio } from '@/context/AudioContext';
-import { Mic, Music, Speaker } from 'lucide-react';
+import { Mic, Music, Speaker, Headphones } from 'lucide-react';
 
 export default function SettingsPage() {
   const { 
     mics, handleMicChange, activeMicId, 
     micVolume, setMicVolume, 
     soundVolume, setSoundVolume, 
-    cableName 
+    cableName, hearOwnSounds, setHearOwnSounds
   } = useAudio();
 
   return (
@@ -70,6 +70,27 @@ export default function SettingsPage() {
               onChange={(e) => setSoundVolume(parseFloat(e.target.value))} 
               className="w-full h-1.5 bg-[#09090b] appearance-none cursor-pointer accent-indigo-500" 
             />
+          </div>
+        </div>
+
+        {/* Hear Own Sounds Toggle */}
+        <div className="bg-[#16161a] p-8 border border-white/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 pr-4">
+              <Headphones size={18} className="text-indigo-500" />
+              <div>
+                <label className="text-xs font-black uppercase tracking-widest text-white/60 block">Hear My Own Sounds</label>
+                <span className="text-[10px] font-bold text-white/40 block mt-1">
+                  Play soundboard audio through your local speakers while simultaneously broadcasting it to the Virtual Cable.
+                </span>
+              </div>
+            </div>
+            <button 
+              onClick={() => setHearOwnSounds(!hearOwnSounds)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${hearOwnSounds ? 'bg-indigo-500' : 'bg-[#09090b] border border-white/10'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hearOwnSounds ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer } = require('electron');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -37,9 +37,17 @@ ipcMain.on('register-hotkey', (event, { key, filename }) => {
 
 ipcMain.on('clear-hotkeys', () => globalShortcut.unregisterAll());
 
+// --- DESKTOP CAPTURE (NEW) ---
+ipcMain.handle('get-desktop-sources', async () => {
+  const sources = await desktopCapturer.getSources({ types: ['screen', 'window'] });
+  return sources.map(s => ({ id: s.id, name: s.name }));
+});
+
 // --- NORMAL WEB SERVER (AUTO-START) ---
 const expressApp = express();
 expressApp.use(cors());
+
+expressApp.use('/handoff', express.raw({ type: '*/*', limit: '100mb' }));
 
 const handleRemotePlay = (req, res) => {
   const filename = req.params.folder ? `${req.params.folder}/${req.params.file}` : req.params.file;
@@ -50,7 +58,22 @@ const handleRemotePlay = (req, res) => {
 expressApp.get('/play/:file', handleRemotePlay);
 expressApp.get('/play/:folder/:file', handleRemotePlay);
 
-// Auto-start the remote deck server
+expressApp.get('/engine/:command', (req, res) => {
+  if (mainWindow) mainWindow.webContents.send('engine-command', req.params.command);
+  res.sendStatus(200);
+});
+
+let handoffBuffer = null;
+expressApp.post('/handoff', (req, res) => {
+  handoffBuffer = req.body;
+  res.sendStatus(200);
+});
+expressApp.get('/handoff', (req, res) => {
+  if (!handoffBuffer) return res.status(404).send('No buffer');
+  res.setHeader('Content-Type', 'audio/wav');
+  res.send(handoffBuffer);
+});
+
 expressApp.listen(8080, '0.0.0.0', () => {
   console.log('Remote web server is listening on port 8080');
 });
