@@ -6,7 +6,7 @@ import {
   ChevronRight, ChevronDown, Keyboard, Type, Move, Scissors
 } from 'lucide-react';
 
-export default function AudioLibrary({ filterMode = 'default' }: { filterMode?: 'default' | 'board' | 'studio' }) {
+export default function AudioLibrary() {
   const { sounds, loadSounds, handleButtonClick, handleDeleteSound, hotkeys, setHotkeys } = useAudio();
   const [library, setLibrary] = useState<Record<string, any[]>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -130,13 +130,9 @@ export default function AudioLibrary({ filterMode = 'default' }: { filterMode?: 
     setShowRenameModal(false); setTargetFile(null); fetchLibrary(); loadSounds();
   };
 
-  const filteredLibrary = useMemo(() => {
+ const filteredLibrary = useMemo(() => {
     const filtered: Record<string, any[]> = {};
     Object.entries(library).forEach(([cat, items]) => {
-      // Filter Logic for Studio/Board Separation
-      if (filterMode === 'board' && cat === 'Studio Clips') return;
-      if (filterMode === 'studio' && cat !== 'Studio Clips') return;
-
       const matches = items.filter(i => {
          if (!searchQuery) return true;
          return i.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -144,7 +140,7 @@ export default function AudioLibrary({ filterMode = 'default' }: { filterMode?: 
       if (matches.length > 0) filtered[cat] = matches;
     });
     return filtered;
-  }, [library, searchQuery, filterMode]);
+  }, [library, searchQuery]);
 
   return (
     <div className="space-y-8 relative pb-24" onClick={() => setContextMenu(null)}>

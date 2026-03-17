@@ -60,17 +60,25 @@ const sliceAndExportAudio = async (blob: Blob, start: number, end: number) => {
 
   const sampleRate = decodedData.sampleRate;
   const channels = decodedData.numberOfChannels;
-  const startOffset = Math.floor(sampleRate * start);
-  let endOffset = Math.floor(sampleRate * end);
+  
+  // Safely clamp start and end to the buffer boundaries
+  let startOffset = Math.min(Math.floor(sampleRate * start), decodedData.length - 1);
+  if (startOffset < 0) startOffset = 0;
+  
+  let endOffset = Math.min(Math.floor(sampleRate * end), decodedData.length);
 
   if (endOffset <= startOffset) endOffset = startOffset + sampleRate;
+  
+  // Calculate frames and create context
   const frameCount = Math.max(1, endOffset - startOffset);
-
   const offlineCtx = new OfflineAudioContext(channels, frameCount, sampleRate);
+  
   const source = offlineCtx.createBufferSource();
   source.buffer = decodedData;
   source.connect(offlineCtx.destination);
-  source.start(0, start, frameCount / sampleRate);
+  
+  // Use the clamped start time and correct duration
+  source.start(0, startOffset / sampleRate, frameCount / sampleRate);
 
   const renderedBuffer = await offlineCtx.startRendering();
   if (audioCtx.state !== "closed") await audioCtx.close();
@@ -242,51 +250,46 @@ export default function LiveClipperPage() {
 
   const handleSelection = () => {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) {
+    if (!selection || selection.isCollapsed || !containerRef.current) {
       setSelectionRange(null);
       return;
     }
 
     try {
-      // 1. Get the exact nodes where the user started and ended their highlight
-      const startNode = selection.anchorNode;
-      const endNode = selection.focusNode;
+      // 1. Grab all spans that represent words inside our container
+      const allSpans = Array.from(
+        containerRef.current.querySelectorAll("span[data-start]")
+      );
+      
+      // 2. Filter down to only spans that intersect with the user's selection
+      const selectedSpans = allSpans.filter((span) =>
+        selection.containsNode(span, true)
+      );
 
-      // 2. Helper function to climb up the DOM tree and find our specific span
-      const getSpan = (node: Node | null) => {
-        if (!node) return null;
-        const element = (
-          node.nodeType === 3 ? node.parentElement : node
-        ) as HTMLElement;
-        return element?.closest("span[data-start]") as HTMLElement | null;
-      };
-
-      const startSpan = getSpan(startNode);
-      const endSpan = getSpan(endNode);
-
-      // If either end of the highlight isn't a valid word, cancel out
-      if (!startSpan || !endSpan) {
+      // If no valid words were highlighted, cancel
+      if (selectedSpans.length === 0) {
         setSelectionRange(null);
         return;
       }
 
-      // 3. Read the timestamps safely
-      const start1 = parseFloat(startSpan.getAttribute("data-start") || "0");
-      const end1 = parseFloat(startSpan.getAttribute("data-end") || "0");
-      const start2 = parseFloat(endSpan.getAttribute("data-start") || "0");
-      const end2 = parseFloat(endSpan.getAttribute("data-end") || "0");
+      // 3. Get start and end boundaries
+      const firstSpan = selectedSpans[0];
+      const lastSpan = selectedSpans[selectedSpans.length - 1];
 
-      // 4. Handle both left-to-right AND right-to-left highlighting automatically
-      const actualStart = Math.min(start1, start2);
-      const actualEnd = Math.max(end1, end2);
+      const actualStart = parseFloat(firstSpan.getAttribute("data-start") || "0");
+      const actualEnd = parseFloat(lastSpan.getAttribute("data-end") || "0");
 
-      // 5. Calculate position for the popup menu based on the selection boundaries
+      // 4. Extract the text from the highlighted spans to auto-fill the name
+      const selectedText = selectedSpans.map(span => span.textContent).join(" ");
+      setClipName(selectedText.trim());
+
+      // 5. Calculate position for the popup menu
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
 
       setSelectionRange({
-        start: actualStart - 0.2, // 200ms padding
-        end: actualEnd + 0.3, // 300ms padding
+        start: actualStart - 0.5, // Increased from 0.2 to 0.5 to catch early consonants
+        end: actualEnd + 0.4,     // Slightly bumped end padding to 400ms 
         top: rect.top - 70,
         left: rect.left + rect.width / 2 - 128,
       });
@@ -317,13 +320,15 @@ export default function LiveClipperPage() {
 
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("category", "Studio Clips");
+      // Change from "Studio Clips" to "Uncategorized"
+      fd.append("category", "Uncategorized");
 
       await fetch("/api/upload", { method: "POST", body: fd });
       loadSounds();
       setSelectionRange(null);
       setClipName("");
-      alert("Saved to Studio Clips successfully!");
+      // Update the success message
+      alert("Saved to Soundboard successfully!");
     } catch (err) {
       console.error(err);
       alert(
@@ -436,8 +441,7 @@ export default function LiveClipperPage() {
           <div
             ref={containerRef}
             onMouseUp={handleSelection}
-            className="flex-1 p-8 overflow-y-auto font-medium text-2xl leading-relaxed text-white/80 selection:bg-indigo-500/40 selection:text-white"
-          >
+            className="flex-1 p-8 overflow-y-auto select-text font-medium text-2xl leading-relaxed text-white/80 selection:bg-indigo-500/40 selection:text-white">
             {finalWords.length === 0 &&
               interimWords.length === 0 &&
               !isListening && (
