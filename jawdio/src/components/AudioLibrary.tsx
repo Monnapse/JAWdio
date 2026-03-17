@@ -37,9 +37,7 @@ export default function AudioLibrary() {
   useEffect(() => {
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
-      if (e.dataTransfer?.types.includes('Files')) {
-        setIsDraggingExternal(true);
-      }
+      if (e.dataTransfer?.types.includes('Files')) setIsDraggingExternal(true);
     };
     const handleDragLeave = () => setIsDraggingExternal(false);
     const handleDrop = async (e: DragEvent) => {
@@ -130,7 +128,7 @@ export default function AudioLibrary() {
     setShowRenameModal(false); setTargetFile(null); fetchLibrary(); loadSounds();
   };
 
- const filteredLibrary = useMemo(() => {
+  const filteredLibrary = useMemo(() => {
     const filtered: Record<string, any[]> = {};
     Object.entries(library).forEach(([cat, items]) => {
       const matches = items.filter(i => {
@@ -146,30 +144,30 @@ export default function AudioLibrary() {
     <div className="space-y-8 relative pb-24" onClick={() => setContextMenu(null)}>
       
       {isDraggingExternal && (
-        <div className="fixed inset-0 bg-indigo-600/10 backdrop-blur-md border-4 border-dashed border-indigo-500/50 z-[1000] flex items-center justify-center pointer-events-none">
-          <div className="bg-[#0f0f13] p-10 rounded-3xl border border-white/10 shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 duration-200">
-            <UploadCloud size={64} className="text-indigo-500 animate-bounce" />
-            <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter">Import into JAWdio</h2>
-            <p className="text-white/40 text-xs font-bold uppercase tracking-widest">Drop to add to Uncategorized</p>
+        <div className="fixed inset-0 bg-[#09090b]/80 backdrop-blur-md border-[6px] border-dashed border-indigo-500/50 z-[1000] flex items-center justify-center pointer-events-none transition-all duration-300">
+          <div className="bg-[#121216] p-12 rounded-[2rem] border border-white/10 shadow-[0_0_50px_rgba(99,102,241,0.2)] flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
+            <UploadCloud size={72} className="text-indigo-400 animate-bounce" />
+            <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter drop-shadow-md">Import into JAWdio</h2>
+            <p className="text-white/50 text-xs font-bold uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full">Drop to add to Uncategorized</p>
           </div>
         </div>
       )}
 
       {bindingTarget && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-indigo-600 px-6 py-4 rounded-full shadow-2xl z-[300] flex items-center gap-4 border border-white/20 animate-in slide-in-from-bottom">
-          <Keyboard size={18} className="text-white animate-pulse" />
-          <span className="text-xs font-black uppercase tracking-widest text-white">Press Key to Bind</span>
-          <button onClick={() => setBindingTarget(null)}><X size={16} className="text-white/60" /></button>
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-indigo-600 px-8 py-5 rounded-2xl shadow-[0_10px_40px_rgba(99,102,241,0.4)] z-[300] flex items-center gap-5 border border-white/20 animate-in slide-in-from-bottom-8">
+          <Keyboard size={20} className="text-white animate-pulse" />
+          <span className="text-sm font-black uppercase tracking-widest text-white">Press Key to Bind</span>
+          <button onClick={() => setBindingTarget(null)} className="ml-4 p-1 hover:bg-white/20 rounded-lg transition-colors"><X size={18} className="text-white" /></button>
         </div>
       )}
 
       {showRenameModal && (
         <div 
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[500] flex items-center justify-center p-6"
+          className="fixed inset-0 bg-[#000000]/80 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-in fade-in duration-200"
           onClick={() => setShowRenameModal(false)}
         >
           <div 
-            className="bg-[#1a1a1f] p-8 border border-white/5 w-full max-w-sm"
+            className="bg-[#121216] p-8 rounded-3xl border border-white/10 shadow-2xl w-full max-w-sm"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-black italic text-white mb-6 uppercase tracking-tighter">Rename Sound</h3>
@@ -178,56 +176,62 @@ export default function AudioLibrary() {
               value={renameValue} 
               onChange={(e) => setRenameValue(e.target.value)} 
               onKeyDown={(e) => e.key === 'Enter' && handleRename()} 
-              className="w-full bg-[#09090b] border border-white/10 p-4 text-white font-bold mb-6 focus:border-indigo-500 outline-none" 
+              className="w-full bg-[#09090b] border border-white/10 rounded-xl p-4 text-white font-bold mb-6 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all" 
+              autoFocus
             />
             <div className="flex gap-3">
-              <button onClick={() => setShowRenameModal(false)} className="flex-1 py-3 text-[10px] font-black uppercase text-white/40">Cancel</button>
-              <button onClick={handleRename} className="flex-1 py-3 bg-indigo-600 text-white text-[10px] font-black uppercase">Save</button>
+              <button onClick={() => setShowRenameModal(false)} className="flex-1 py-3.5 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-xs font-black uppercase text-white/60 transition-colors">Cancel</button>
+              <button onClick={handleRename} className="flex-1 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 text-white text-xs font-black uppercase transition-colors">Save</button>
             </div>
           </div>
         </div>
       )}
 
       <div className="flex justify-between items-center gap-6">
-        <div className="relative w-96 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-indigo-500" size={18} />
-          <input type="text" placeholder="Search sounds..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-[#16161a] border border-white/5 p-4 pl-12 text-white font-bold rounded-xl focus:border-indigo-500 outline-none" />
+        <div className="relative w-full max-w-md group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-indigo-400 transition-colors" size={18} />
+          <input type="text" placeholder="Search your sounds..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-[#121216] border border-white/5 p-3.5 pl-12 text-sm text-white font-medium rounded-2xl focus:border-indigo-500/50 focus:bg-[#16161a] outline-none transition-all shadow-inner" />
         </div>
-        <button onClick={() => setShowCategoryModal(true)} className="px-5 py-3 bg-white/5 border border-white/10 text-white/40 hover:text-white flex items-center gap-2 text-[10px] font-black uppercase transition-all">
-          <FolderPlus size={14} /> New Category
+        <button onClick={() => setShowCategoryModal(true)} className="px-5 py-3.5 bg-[#121216] border border-white/5 hover:border-indigo-500/30 hover:bg-indigo-500/5 text-white/60 hover:text-indigo-400 rounded-2xl flex items-center gap-2 text-[11px] font-black uppercase transition-all shadow-sm">
+          <FolderPlus size={16} /> New Category
         </button>
       </div>
 
-      <div className="space-y-12">
+      <div className="space-y-10">
         {Object.entries(filteredLibrary).map(([catName, catSounds]) => (
           <div key={catName} onDragOver={(e) => e.preventDefault()} onDrop={(e) => onDropOnCategory(e, catName)}>
-            <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6 cursor-pointer" onClick={() => setExpanded({...expanded, [catName]: !expanded[catName]})}>
+            <div className="flex items-center justify-between pb-3 mb-5 cursor-pointer group" onClick={() => setExpanded({...expanded, [catName]: !expanded[catName]})}>
               <div className="flex items-center gap-3">
-                <div className="text-indigo-500">{expanded[catName] ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</div>
-                <h3 className="text-lg font-black italic tracking-tight uppercase">{catName}</h3>
+                <div className="text-indigo-500/70 group-hover:text-indigo-400 transition-colors bg-indigo-500/10 p-1.5 rounded-lg">
+                  {expanded[catName] ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                </div>
+                <h3 className="text-xl font-black italic tracking-tight uppercase text-white/90 group-hover:text-white">{catName}</h3>
               </div>
+              <div className="h-px flex-1 bg-gradient-to-r from-white/5 to-transparent ml-6"></div>
             </div>
 
             {expanded[catName] && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
                 {catSounds.map((sound) => (
                   <div
                     key={sound.filename} draggable onDragStart={(e) => onDragStart(e, sound.filename)}
                     onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, file: sound.filename }); }}
                     onClick={() => handleButtonClick(sound.filename, false, () => {})}
-                    className="relative aspect-square flex flex-col items-center justify-center p-5 bg-[#16161a] border border-white/5 hover:border-indigo-500/40 hover:bg-[#1c1c21] cursor-pointer group"
+                    className="relative aspect-square flex flex-col items-center justify-center p-4 bg-[#121216] border border-white/5 hover:border-indigo-500/50 hover:bg-[#16161a] hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] rounded-2xl cursor-pointer group transition-all duration-200"
                   >
                     {hotkeys[sound.filename] && (
-                      <span className="absolute top-3 left-3 text-[9px] font-black bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-md">{hotkeys[sound.filename].replace('CommandOrControl', 'CTRL')}</span>
+                      <span className="absolute top-3 left-3 text-[10px] font-black bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded-md border border-indigo-500/20">{hotkeys[sound.filename].replace('CommandOrControl', 'CTRL')}</span>
                     )}
-                    <span className="text-sm font-bold text-white/70 text-center leading-tight select-none">{sound.name}</span>
-                    <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-40 transition-opacity"><Move size={12} className="text-white" /></div>
+                    <span className="text-sm font-bold text-white/70 group-hover:text-white text-center leading-tight select-none mt-2 transition-colors">{sound.name}</span>
+                    <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-white/5 p-1.5 rounded-lg"><Move size={12} className="text-white/60" /></div>
                   </div>
                 ))}
                 
-                <label className="aspect-square flex flex-col items-center justify-center p-5 border-2 border-dashed border-white/5 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all cursor-pointer group">
-                  <UploadCloud size={20} className="text-white/10 group-hover:text-indigo-500 mb-2" />
-                  <span className="text-[8px] font-black uppercase text-white/10 group-hover:text-white text-center">Add to {catName}</span>
+                <label className="aspect-square flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-white/5 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all cursor-pointer group">
+                  <div className="bg-white/5 p-3 rounded-full mb-3 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all">
+                    <UploadCloud size={20} className="text-white/40 group-hover:text-indigo-400" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-white/30 group-hover:text-indigo-300 text-center transition-colors">Add to {catName}</span>
                   <input type="file" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -244,19 +248,19 @@ export default function AudioLibrary() {
 
       {contextMenu && (
         <div 
-          className="fixed bg-[#1a1a1f] border border-white/10 shadow-2xl py-2 w-56 z-[600] overflow-hidden" 
+          className="fixed bg-[#121216]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] py-2 w-60 z-[600] overflow-hidden animate-in fade-in zoom-in-95 duration-100" 
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-4 py-2 text-[9px] font-black text-white/20 uppercase tracking-widest border-b border-white/5 mb-1">Actions</div>
+          <div className="px-4 py-2 text-[10px] font-black text-white/30 uppercase tracking-widest border-b border-white/5 mb-1 bg-[#09090b]/50">Sound Actions</div>
           
-          <button onClick={() => { setBindingTarget(contextMenu.file); setContextMenu(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-white/60 hover:text-white hover:bg-indigo-600 flex items-center gap-3">
-            <Keyboard size={14}/> Set Keybind
+          <button onClick={() => { setBindingTarget(contextMenu.file); setContextMenu(null); }} className="w-full text-left px-5 py-3 text-sm font-semibold text-white/70 hover:text-white hover:bg-indigo-600 flex items-center gap-3 transition-colors">
+            <Keyboard size={16} className="opacity-70" /> Set Keybind
           </button>
           
           {hotkeys[contextMenu.file] && (
-            <button onClick={() => { saveHotkey(contextMenu.file, null); setContextMenu(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-amber-500/60 hover:text-amber-500 hover:bg-amber-500/10 flex items-center gap-3">
-              <Scissors size={14}/> Remove Keybind
+            <button onClick={() => { saveHotkey(contextMenu.file, null); setContextMenu(null); }} className="w-full text-left px-5 py-3 text-sm font-semibold text-amber-500/80 hover:text-amber-50 hover:bg-amber-600 flex items-center gap-3 transition-colors">
+              <Scissors size={16} className="opacity-70" /> Remove Keybind
             </button>
           )}
           
@@ -265,8 +269,8 @@ export default function AudioLibrary() {
             setRenameValue(contextMenu.file.split('/').pop()?.replace(/\.[^/.]+$/, "") || ""); 
             setShowRenameModal(true); 
             setContextMenu(null); 
-          }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-white/60 hover:text-white hover:bg-indigo-600 flex items-center gap-3">
-            <Type size={14}/> Rename
+          }} className="w-full text-left px-5 py-3 text-sm font-semibold text-white/70 hover:text-white hover:bg-white/10 flex items-center gap-3 transition-colors border-t border-white/5">
+            <Type size={16} className="opacity-70" /> Rename
           </button>
           
           <button onClick={() => { 
@@ -277,8 +281,8 @@ export default function AudioLibrary() {
                 handleDeleteSound(fileToDelete);
               }
             }, 50);
-          }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500/60 hover:text-red-500 hover:bg-red-500/10 flex items-center gap-3">
-            <Trash2 size={14}/> Delete
+          }} className="w-full text-left px-5 py-3 text-sm font-semibold text-red-500/80 hover:text-red-50 hover:bg-red-600 flex items-center gap-3 transition-colors border-t border-white/5">
+            <Trash2 size={16} className="opacity-70" /> Delete
           </button>
         </div>
       )}

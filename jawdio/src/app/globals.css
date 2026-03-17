@@ -1,4 +1,3 @@
-/* app/globals.css */
 @import "tailwindcss";
 
 html, body {
@@ -9,19 +8,20 @@ html, body {
   height: 100vh;
 }
 
-/* JAWdio Master Wrapper - Sharp edges */
+/* JAWdio Master Wrapper - Refined */
 .jawdio-layout {
-  @apply flex h-screen w-screen bg-[#09090b] overflow-hidden;
+  @apply flex h-screen w-screen bg-[#09090b] overflow-hidden text-slate-100;
 }
 
-/* Content Area - No more rounding, just a clean border separator */
+/* Content Area */
 .content-area {
-  @apply flex-1 flex flex-col bg-[#09090b] border-l border-white/5 overflow-hidden;
+  @apply flex-1 flex flex-col bg-[#09090b] overflow-hidden;
 }
 
-/* Keep the scrollbars thin and minimal */
+/* Polished Scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -29,9 +29,10 @@ html, body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.2);
+  background: rgba(99, 102, 241, 0.4);
 }
