@@ -1,51 +1,174 @@
 'use client';
-import { MicVocal, Type } from 'lucide-react';
-import Link from 'next/link';
+
 import Image from 'next/image';
+import Link from 'next/link';
+import { LayoutGrid, MicVocal, Settings2, Volume2 } from 'lucide-react';
+import { useMemo } from 'react';
+
+import { useAudio } from '@/context/AudioContext';
+
+const featureCards = [
+  {
+    href: '/studio',
+    label: 'Clipper',
+    title: 'Buffer, monitor speech, and finish every clip in one workspace.',
+    icon: MicVocal,
+    accent: 'rgba(45,212,191,0.18)',
+  },
+  {
+    href: '/settings',
+    label: 'Routing',
+    title: 'Dial in the monitoring path and virtual output chain.',
+    icon: Settings2,
+    accent: 'rgba(247,185,85,0.16)',
+  },
+];
 
 export default function DashboardPage() {
+  const { sounds, isHost, cableName, status } = useAudio();
+
+  const categoryCount = useMemo(
+    () => new Set(sounds.map((sound) => sound.category)).size || 1,
+    [sounds],
+  );
+
   return (
-    <div className="p-8 lg:p-12 h-full flex flex-col items-center justify-center text-center relative overflow-hidden">
-      {/* Subtle background glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-[120px] pointer-events-none"></div>
+    <div className="flex min-h-full flex-col gap-6 py-2">
+      <section className="panel-surface relative overflow-hidden p-6 sm:p-8">
+        <div className="absolute inset-y-0 right-0 hidden w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(45,212,191,0.16),transparent_58%)] lg:block" />
+        <div className="relative grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+          <div>
+            <p className="eyebrow mb-3">Broadcast Soundboard</p>
+            <h2 className="max-w-3xl font-[var(--font-display)] text-4xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-5xl">
+              A cleaner, faster control surface for live moments.
+            </h2>
+            <p className="mt-4 max-w-2xl text-base text-[var(--text-muted)] sm:text-lg">
+              Route audio, build instant pads, and capture show-ready moments from a unified
+              clipper built to feel like premium production software.
+            </p>
 
-      <div className="mb-10 relative group z-10">
-        <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full group-hover:bg-indigo-500/30 transition-all duration-700"></div>
-        <Image 
-          src="/jawdio.png" 
-          alt="JAWdio Logo" 
-          width={280} 
-          height={100} 
-          className="relative object-contain drop-shadow-[0_0_25px_rgba(99,102,241,0.2)] transition-transform duration-500 hover:scale-105" 
-          priority 
-        />
-      </div>
-      
-      <p className="text-white/50 text-sm font-medium max-w-md mx-auto mb-14 z-10">
-        Your global soundboard is always active on the right. Select a tool below to start clipping.
-      </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <span className="rounded-full border border-[rgba(45,212,191,0.24)] bg-[rgba(45,212,191,0.08)] px-4 py-2 text-sm text-[var(--accent)]">
+                {status}
+              </span>
+              <span className="rounded-full border border-[var(--line)] bg-[rgba(255,255,255,0.04)] px-4 py-2 text-sm text-[var(--text-base)]">
+                Virtual route: {cableName}
+              </span>
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl z-10">
-        <Link href="/studio" className="p-8 bg-[#121216]/80 backdrop-blur-xl border border-white/5 hover:border-indigo-500/50 hover:bg-[#16161a] hover:shadow-[0_0_30px_rgba(99,102,241,0.1)] transition-all duration-300 rounded-3xl flex flex-col items-center gap-5 group">
-          <div className="p-4 bg-white/5 rounded-2xl group-hover:bg-indigo-500/10 transition-colors">
-            <MicVocal size={32} className="text-white/40 group-hover:text-indigo-400 transition-colors" />
-          </div>
-          <div className="text-center">
-            <h3 className="font-black italic uppercase tracking-tight text-white/90 group-hover:text-white text-lg">Clipper Studio</h3>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-2">Audio-based Editing</p>
-          </div>
-        </Link>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="panel-soft flex items-center gap-4 p-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border border-[rgba(45,212,191,0.22)] bg-[rgba(45,212,191,0.1)]">
+                <Image
+                  src="/jawdio.png"
+                  alt="JAWdio"
+                  width={120}
+                  height={40}
+                  className="h-auto w-[86px]"
+                  priority
+                />
+              </div>
+              <div>
+                <p className="eyebrow mb-1">Board Status</p>
+                <p className="text-base text-[var(--text-strong)]">
+                  {isHost ? 'Host system armed and ready.' : 'Connected as a remote client.'}
+                </p>
+              </div>
+            </div>
 
-        <Link href="/live" className="p-8 bg-[#121216]/80 backdrop-blur-xl border border-white/5 hover:border-emerald-500/50 hover:bg-[#16161a] hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-all duration-300 rounded-3xl flex flex-col items-center gap-5 group">
-          <div className="p-4 bg-white/5 rounded-2xl group-hover:bg-emerald-500/10 transition-colors">
-            <Type size={32} className="text-white/40 group-hover:text-emerald-400 transition-colors" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="metric-card">
+                <span className="metric-label">Loaded Pads</span>
+                <strong className="metric-value">{sounds.length}</strong>
+              </div>
+              <div className="metric-card">
+                <span className="metric-label">Folders</span>
+                <strong className="metric-value">{categoryCount}</strong>
+              </div>
+            </div>
           </div>
-          <div className="text-center">
-            <h3 className="font-black italic uppercase tracking-tight text-white/90 group-hover:text-white text-lg">Live Text Clipper</h3>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-2">Real-time STT Editing</p>
+        </div>
+      </section>
+
+      <section className="grid gap-5 2xl:grid-cols-[1fr_0.78fr]">
+        <div className="grid gap-5 md:grid-cols-2">
+          {featureCards.map((card) => {
+            const Icon = card.icon;
+
+            return (
+              <Link
+                key={card.href}
+                href={card.href}
+                className="panel-surface group relative overflow-hidden p-6 transition duration-200 hover:-translate-y-1"
+              >
+                <div
+                  className="absolute inset-x-0 top-0 h-px"
+                  style={{
+                    background: `linear-gradient(90deg, transparent, ${card.accent}, transparent)`,
+                  }}
+                />
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border"
+                  style={{ borderColor: card.accent, background: card.accent }}
+                >
+                  <Icon size={24} className="text-[var(--text-strong)]" />
+                </div>
+                <p className="eyebrow mt-6 mb-2">{card.label}</p>
+                <h3 className="font-[var(--font-display)] text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+                  {card.title}
+                </h3>
+                <p className="mt-3 text-sm text-[var(--text-muted)]">
+                  Open the workspace and keep your board visible in the side rack while you work.
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+
+        <section className="panel-surface p-6">
+          <p className="eyebrow mb-3">Signal Path</p>
+          <h3 className="font-[var(--font-display)] text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+            Build a dependable on-air chain.
+          </h3>
+          <div className="mt-5 space-y-4">
+            <div className="panel-soft flex items-start gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-[var(--accent)]">
+                <LayoutGrid size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--text-strong)]">
+                  Organize pads by show segment.
+                </p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  Keep drops, music beds, reactions, and callbacks separated for muscle memory.
+                </p>
+              </div>
+            </div>
+
+            <div className="panel-soft flex items-start gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-[var(--warm)]">
+                <Volume2 size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--text-strong)]">
+                  Monitor locally while routing to virtual cable.
+                </p>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  Use Routing to send the same event to your broadcast chain and your own speakers.
+                </p>
+              </div>
+            </div>
+
+            {isHost && (
+              <Link href="/settings" className="ghost-button w-full justify-center">
+                <Settings2 size={16} />
+                Open Routing Controls
+              </Link>
+            )}
           </div>
-        </Link>
-      </div>
+        </section>
+      </section>
     </div>
   );
 }

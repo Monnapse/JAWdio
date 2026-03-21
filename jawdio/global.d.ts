@@ -1,18 +1,24 @@
-// global.d.ts
 export {};
 
 declare global {
+  type WindowAction = "close" | "minimize" | "maximize";
+
+  interface DesktopSource {
+    id: string;
+    name: string;
+  }
+
+  interface ElectronAPI {
+    onTriggerSound: (callback: (filename: string) => void) => void;
+    onEngineCommand: (callback: (command: string) => void) => void;
+    registerHotkey: (key: string, filename: string) => void;
+    clearHotkeys: () => void;
+    sendWindowAction: (action: WindowAction) => void;
+    getDesktopSources: () => Promise<DesktopSource[]>;
+  }
+
   interface Window {
-    electronAPI: {
-      onTriggerSound: (callback: (filename: string) => void) => void;
-      registerHotkey: (key: string, filename: string) => void;
-      clearHotkeys: () => void;
-      sendWindowAction: (action: 'close' | 'minimize' | 'maximize') => void;
-      
-      // Remote Server Controls
-      startServer: (port: number) => Promise<{ success: boolean; ip: string; error?: string }>;
-      stopServer: () => Promise<{ success: boolean }>;
-      getServerStatus: () => Promise<{ isRunning: boolean; ip: string }>;
-    };
+    electronAPI?: ElectronAPI;
+    webkitAudioContext?: typeof AudioContext;
   }
 }

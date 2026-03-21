@@ -1,28 +1,36 @@
 'use client';
-import { useAudio } from '@/context/AudioContext';
-import { JAWDIO_VERSION, GITHUB_REPO } from '@/lib/version';
+
 import { Download } from 'lucide-react';
+
+import { useAudio } from '@/context/AudioContext';
+import { GITHUB_REPO, JAWDIO_VERSION } from '@/lib/version';
 
 export default function UpdateShield() {
   const { hasUpdate, latestVersion } = useAudio();
 
-  if (!hasUpdate) return null;
+  if (!hasUpdate) {
+    return null;
+  }
 
   return (
-    <div className="bg-brand-600 p-3 flex items-center justify-between px-8 animate-in slide-in-from-top duration-500">
-      <div className="flex items-center gap-3">
-        <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">New Update</span>
-        <p className="text-sm font-bold text-white">
-          v{latestVersion} is available. (You are on v{JAWDIO_VERSION})
-        </p>
+    <div className="border-b border-[rgba(247,185,85,0.22)] bg-[rgba(247,185,85,0.08)] px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-[1520px] flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="eyebrow mb-1 text-[var(--warm)]">Update Available</p>
+          <p className="text-sm text-[var(--text-strong)]">
+            Version {latestVersion} is ready. You&apos;re currently running {JAWDIO_VERSION}.
+          </p>
+        </div>
+        <a
+          href={`https://github.com/${GITHUB_REPO}/releases`}
+          target="_blank"
+          rel="noreferrer"
+          className="ghost-button text-sm"
+        >
+          <Download size={16} />
+          View Release
+        </a>
       </div>
-      <a 
-        href={`https://github.com/${GITHUB_REPO}/releases`} 
-        target="_blank"
-        className="flex items-center gap-2 bg-white text-brand-600 px-4 py-1.5 rounded-full font-black text-xs hover:bg-zinc-100 transition-all active:scale-95"
-      >
-        <Download size={14} /> GET UPDATE
-      </a>
     </div>
   );
 }

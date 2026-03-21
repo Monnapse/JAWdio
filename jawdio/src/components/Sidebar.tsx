@@ -1,15 +1,30 @@
 'use client';
+
+import type { CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAudio } from '@/context/AudioContext';
-import { LayoutGrid, Settings2, Square, MicVocal, Type } from 'lucide-react';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { LayoutGrid, MicVocal, Settings2, Square } from 'lucide-react';
 
-export default function Sidebar({ isOpen, toggle }: { isOpen: boolean, toggle: () => void }) {
+import { useAudio } from '@/context/AudioContext';
+import { JAWDIO_VERSION } from '@/lib/version';
+
+type SidebarVars = CSSProperties & {
+  '--sidebar-width'?: string;
+};
+
+export default function Sidebar({
+  isOpen,
+  toggle,
+}: {
+  isOpen: boolean;
+  toggle: () => void;
+}) {
   const pathname = usePathname();
-  const { isHost, handleStopClick } = useAudio();
-  
-  const [width, setWidth] = useState(288);
+  const { handleStopClick, isHost, sounds, status } = useAudio();
+
+  const [width, setWidth] = useState(296);
   const isDragging = useRef(false);
 
   const startResizing = useCallback(() => {
@@ -18,73 +33,167 @@ export default function Sidebar({ isOpen, toggle }: { isOpen: boolean, toggle: (
   }, []);
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      let newWidth = e.clientX;
-      if (newWidth < 220) newWidth = 220;
-      if (newWidth > 500) newWidth = 500;
-      setWidth(newWidth);
-    };
-    const handleMouseUp = () => {
-      if (isDragging.current) {
-        isDragging.current = false;
-        document.body.style.cursor = 'default';
+    const syncSidebarWidth = window.setTimeout(() => {
+      const storedWidth = window.localStorage.getItem('jawdio-sidebar-width');
+      const parsedWidth = Number.parseInt(storedWidth ?? '', 10);
+
+      if (Number.isFinite(parsedWidth)) {
+        setWidth(parsedWidth);
       }
+    }, 0);
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isDragging.current) {
+        return;
+      }
+
+      const nextWidth = Math.max(248, Math.min(420, event.clientX));
+      setWidth(nextWidth);
+      window.localStorage.setItem('jawdio-sidebar-width', String(nextWidth));
     };
+
+    const handleMouseUp = () => {
+      if (!isDragging.current) {
+        return;
+      }
+
+      isDragging.current = false;
+      document.body.style.cursor = 'default';
+    };
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+
     return () => {
+      window.clearTimeout(syncSidebarWidth);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
 
+  const navigationItems = useMemo(
+    () =>
+      [
+        { href: '/', label: 'Overview', description: 'Show dashboard', icon: LayoutGrid },
+        {
+          href: '/studio',
+          label: 'Clipper',
+          description: 'Buffer, transcript, and edit in one deck',
+          icon: MicVocal,
+        },
+        isHost
+          ? {
+              href: '/settings',
+              label: 'Routing',
+              description: 'Configure outputs and monitoring',
+              icon: Settings2,
+            }
+          : null,
+      ].filter(Boolean) as Array<{
+        href: string;
+        label: string;
+        description: string;
+        icon: typeof LayoutGrid;
+      }>,
+    [isHost],
+  );
+
+  const sidebarStyle: SidebarVars = { '--sidebar-width': `${width}px` };
+
   return (
-    <aside 
-      className={`fixed inset-y-0 left-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-2xl border-r border-white/5 transform transition-transform duration-300 lg:relative lg:translate-x-0 flex flex-shrink-0 shadow-2xl ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
-      style={{ width: `${width}px` }}
+    <aside
+      className={`shell-sidebar fixed inset-y-0 left-0 z-50 flex shrink-0 border-r border-[var(--line)] bg-[rgba(6,10,16,0.92)] backdrop-blur-2xl transition-transform duration-300 xl:static xl:translate-x-0 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+      style={sidebarStyle}
     >
-      <div className="flex flex-col h-full w-full overflow-hidden relative">
-        <div className="p-8 flex flex-col items-start gap-3">
-          <img 
-            src="/jawdio.svg" 
-            alt="JAWdio Logo" 
-            className="w-[140px] h-auto object-contain drop-shadow-lg"
-          />
-          <p className="text-[9px] uppercase tracking-[0.3em] text-white/30 font-black ml-1">v1.0.4 // Production</p>
+      <div className="relative flex h-full w-full flex-col overflow-hidden">
+        <div className="border-b border-[var(--line)] px-5 pb-5 pt-6">
+          <div className="flex items-center justify-between gap-3">
+            <Image
+              src="/jawdio.png"
+              alt="JAWdio"
+              width={150}
+              height={54}
+              className="h-auto w-[150px]"
+              priority
+            />
+            <span className="rounded-full border border-[rgba(45,212,191,0.22)] bg-[rgba(45,212,191,0.1)] px-3 py-1 text-xs text-[var(--accent)]">
+              v{JAWDIO_VERSION}
+            </span>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="metric-card min-w-0">
+              <span className="metric-label">Mode</span>
+              <strong className="metric-value text-[1.1rem]">{isHost ? 'Host' : 'Remote'}</strong>
+            </div>
+            <div className="metric-card min-w-0">
+              <span className="metric-label">Pads</span>
+              <strong className="metric-value text-[1.1rem]">{sounds.length}</strong>
+            </div>
+          </div>
+
+          <p className="mt-4 text-sm text-[var(--text-muted)]">{status}</p>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1">
-          <Link href="/" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
-            <LayoutGrid size={18} /> Dashboard
-          </Link>
-          
-          <Link href="/studio" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/studio' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
-            <MicVocal size={18} /> Clipper Studio
-          </Link>
+        <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-5">
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
 
-          <Link href="/live" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/live' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
-            <Type size={18} /> Live Text Clipper
-          </Link>
-
-          {isHost && (
-            <Link href="/settings" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/settings' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
-              <Settings2 size={18} /> Settings
-            </Link>
-          )}
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => {
+                  if (window.innerWidth < 1280) {
+                    toggle();
+                  }
+                }}
+                className={`group flex items-start gap-3 rounded-[1.35rem] border px-4 py-4 transition ${
+                  isActive
+                    ? 'border-[rgba(45,212,191,0.28)] bg-[rgba(45,212,191,0.1)]'
+                    : 'border-transparent bg-transparent hover:border-[var(--line)] hover:bg-[rgba(255,255,255,0.04)]'
+                }`}
+              >
+                <div
+                  className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${
+                    isActive
+                      ? 'border-[rgba(45,212,191,0.24)] bg-[rgba(45,212,191,0.12)] text-[var(--accent)]'
+                      : 'border-[var(--line)] bg-[rgba(255,255,255,0.03)] text-[var(--text-muted)] group-hover:text-[var(--text-strong)]'
+                  }`}
+                >
+                  <Icon size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p
+                    className={`font-[var(--font-display)] text-lg font-semibold tracking-[-0.04em] ${
+                      isActive ? 'text-[var(--text-strong)]' : 'text-[var(--text-base)]'
+                    }`}
+                  >
+                    {item.label}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">{item.description}</p>
+                </div>
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="p-6 border-t border-white/5 bg-[#070709]">
-          <button onClick={handleStopClick} className="w-full py-4 rounded-xl bg-[#121216] hover:bg-red-500/10 text-white/40 hover:text-red-500 transition-all duration-200 font-black border border-white/5 hover:border-red-500/20 flex items-center justify-center gap-3 text-[11px] tracking-widest shadow-lg">
-            <Square size={14} fill="currentColor" /> STOP ALL SOUNDS
+        <div className="border-t border-[var(--line)] p-4">
+          <button
+            type="button"
+            onClick={() => void handleStopClick()}
+            className="danger-button w-full justify-center"
+          >
+            <Square size={14} fill="currentColor" />
+            Stop All Sounds
           </button>
         </div>
       </div>
-      
-      <div 
-        onMouseDown={startResizing}
-        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-500/50 transition-colors z-[100]"
-      />
+
+      <div onMouseDown={startResizing} className="shell-resizer right-0 hidden xl:block" />
     </aside>
   );
 }

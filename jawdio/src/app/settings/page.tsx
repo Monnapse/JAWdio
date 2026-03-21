@@ -1,104 +1,213 @@
 'use client';
+
+import { Headphones, Mic, Music, Speaker, Waves } from 'lucide-react';
+
 import { useAudio } from '@/context/AudioContext';
-import { Mic, Music, Speaker, Headphones } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { 
-    mics, handleMicChange, activeMicId, 
-    micVolume, setMicVolume, 
-    soundVolume, setSoundVolume, 
-    cableName, hearOwnSounds, setHearOwnSounds
+  const {
+    activeMicId,
+    cableName,
+    handleMicChange,
+    hearOwnSounds,
+    isHost,
+    micVolume,
+    mics,
+    outputs,
+    setHearOwnSounds,
+    setMicVolume,
+    setSoundVolume,
+    soundVolume,
   } = useAudio();
 
-  return (
-    <div className="p-8 lg:p-12 max-w-4xl mx-auto pb-24">
-      <div className="mb-12">
-        <h2 className="text-4xl font-black italic tracking-tighter">MIXER</h2>
-        <p className="text-white/20 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Audio I/O Configuration</p>
+  if (!isHost) {
+    return (
+      <div className="flex min-h-full items-center justify-center py-8">
+        <section className="panel-surface w-full max-w-2xl p-8 text-center">
+          <p className="eyebrow mb-3">Host Only</p>
+          <h2 className="font-[var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+            Routing controls are only available on the desktop host.
+          </h2>
+          <p className="mt-3 text-sm text-[var(--text-muted)]">
+            Open this page from the Electron app to choose microphones, monitoring, and output
+            routing.
+          </p>
+        </section>
       </div>
-      
-      <div className="space-y-6">
-        <div className="bg-[#16161a] p-8 border border-white/5">
-          <div className="flex items-center gap-3 mb-6">
-            <Mic size={18} className="text-brand-500" />
-            <label className="text-xs font-black uppercase tracking-widest text-white/60">Input Device</label>
-          </div>
-          <select 
-            onChange={(e) => handleMicChange(e.target.value)}
-            value={activeMicId}
-            className="w-full bg-[#09090b] text-white p-4 border border-white/10 focus:border-brand-500 outline-none transition-all font-bold"
-          >
-            <option value="none">Device: Off</option>
-            {mics.map((mic) => (
-              <option key={mic.deviceId} value={mic.deviceId}>
-                {mic.label || `Microphone (${mic.deviceId.substring(0, 5)})`}
-              </option>
-            ))}
-          </select>
-        </div>
+    );
+  }
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-[#16161a] p-8 border border-white/5">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <Mic size={18} className="text-brand-500" />
-                <label className="text-xs font-black uppercase tracking-widest text-white/60">Mic Level</label>
-              </div>
-              <span className="text-[10px] font-black text-brand-400">{Math.round(micVolume * 100)}%</span>
-            </div>
-            <input 
-              type="range" min="0" max="1" step="0.01" 
-              value={micVolume} 
-              onChange={(e) => setMicVolume(parseFloat(e.target.value))} 
-              className="w-full h-1.5 bg-[#09090b] appearance-none cursor-pointer accent-brand-500" 
-            />
+  return (
+    <div className="flex min-h-full flex-col gap-6 py-2">
+      <section className="panel-surface p-6 sm:p-8">
+        <p className="eyebrow mb-3">Mixer & Routing</p>
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <h2 className="font-[var(--font-display)] text-3xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-4xl">
+              Fine-tune the path from microphone to board to broadcast chain.
+            </h2>
+            <p className="mt-4 text-base text-[var(--text-muted)]">
+              These controls define how your mic, soundboard playback, and local monitoring work
+              together in the host deck.
+            </p>
           </div>
 
-          <div className="bg-[#16161a] p-8 border border-white/5">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <Music size={18} className="text-brand-500" />
-                <label className="text-xs font-black uppercase tracking-widest text-white/60">Deck Level</label>
-              </div>
-              <span className="text-[10px] font-black text-brand-400">{Math.round(soundVolume * 100)}%</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="metric-card">
+              <span className="metric-label">Inputs</span>
+              <strong className="metric-value">{mics.length}</strong>
             </div>
-            <input 
-              type="range" min="0" max="1" step="0.01" 
-              value={soundVolume} 
-              onChange={(e) => setSoundVolume(parseFloat(e.target.value))} 
-              className="w-full h-1.5 bg-[#09090b] appearance-none cursor-pointer accent-brand-500" 
-            />
+            <div className="metric-card">
+              <span className="metric-label">Outputs</span>
+              <strong className="metric-value">{outputs.length}</strong>
+            </div>
           </div>
         </div>
+      </section>
 
-        <div className="bg-[#16161a] p-8 border border-white/5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 pr-4">
-              <Headphones size={18} className="text-brand-500" />
+      <section className="grid gap-5 2xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-5">
+          <div className="panel-surface p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-[rgba(45,212,191,0.24)] bg-[rgba(45,212,191,0.1)] text-[var(--accent)]">
+                <Mic size={18} />
+              </div>
               <div>
-                <label className="text-xs font-black uppercase tracking-widest text-white/60 block">Hear My Own Sounds</label>
-                <span className="text-[10px] font-bold text-white/40 block mt-1">
-                  Play soundboard audio through your local speakers while simultaneously broadcasting it to the Virtual Cable.
+                <p className="eyebrow mb-1">Input Source</p>
+                <h3 className="font-[var(--font-display)] text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+                  Choose the live microphone feed.
+                </h3>
+              </div>
+            </div>
+
+            <select
+              value={activeMicId}
+              onChange={(event) => void handleMicChange(event.target.value)}
+              className="select-field"
+            >
+              <option value="none">Disable microphone routing</option>
+              {mics.map((mic) => (
+                <option key={mic.deviceId} value={mic.deviceId}>
+                  {mic.label || `Microphone ${mic.deviceId.slice(0, 6)}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="panel-surface p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-[var(--accent)]">
+                    <Waves size={17} />
+                  </div>
+                  <div>
+                    <p className="eyebrow mb-1">Mic Level</p>
+                    <p className="text-sm text-[var(--text-strong)]">Input monitor gain</p>
+                  </div>
+                </div>
+                <span className="rounded-full border border-[var(--line)] px-3 py-1 text-xs text-[var(--text-base)]">
+                  {Math.round(micVolume * 100)}%
                 </span>
               </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={micVolume}
+                onChange={(event) => setMicVolume(Number.parseFloat(event.target.value))}
+                className="range-accent mt-6 w-full"
+              />
             </div>
-            <button 
-              onClick={() => setHearOwnSounds(!hearOwnSounds)}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${hearOwnSounds ? 'bg-brand-500' : 'bg-[#09090b] border border-white/10'}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hearOwnSounds ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
+
+            <div className="panel-surface p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-[var(--warm)]">
+                    <Music size={17} />
+                  </div>
+                  <div>
+                    <p className="eyebrow mb-1">Board Level</p>
+                    <p className="text-sm text-[var(--text-strong)]">Pad playback gain</p>
+                  </div>
+                </div>
+                <span className="rounded-full border border-[var(--line)] px-3 py-1 text-xs text-[var(--text-base)]">
+                  {Math.round(soundVolume * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={soundVolume}
+                onChange={(event) => setSoundVolume(Number.parseFloat(event.target.value))}
+                className="range-accent mt-6 w-full"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="bg-brand-500/5 p-8 border border-brand-500/10">
-          <div className="flex items-center gap-3 mb-2">
-            <Speaker size={18} className="text-brand-400" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-brand-400/60">Output Destination</p>
+        <div className="space-y-5">
+          <div className="panel-surface p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-[rgba(247,185,85,0.24)] bg-[rgba(247,185,85,0.1)] text-[var(--warm)]">
+                <Speaker size={18} />
+              </div>
+              <div>
+                <p className="eyebrow mb-1">Broadcast Output</p>
+                <h3 className="font-[var(--font-display)] text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+                  Virtual cable destination
+                </h3>
+              </div>
+            </div>
+
+            <div className="panel-soft p-5">
+              <p className="text-sm text-[var(--text-muted)]">Primary route</p>
+              <p className="mt-2 font-[var(--font-display)] text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+                {cableName}
+              </p>
+            </div>
           </div>
-          <p className="text-xl font-black italic text-brand-400">{cableName}</p>
+
+          <div className="panel-surface p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-[1.2rem] border border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-[var(--text-base)]">
+                  <Headphones size={18} />
+                </div>
+                <div>
+                  <p className="eyebrow mb-1">Local Monitoring</p>
+                  <h3 className="font-[var(--font-display)] text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+                    Hear pads in your own speakers too.
+                  </h3>
+                  <p className="mt-2 text-sm text-[var(--text-muted)]">
+                    This only adds a second local copy of pad playback. It does not mute whatever
+                    is already monitoring the broadcast cable in Windows, OBS, or your audio gear.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setHearOwnSounds(!hearOwnSounds)}
+                className={`relative inline-flex h-8 w-14 items-center rounded-full border transition ${
+                  hearOwnSounds
+                    ? 'border-[rgba(45,212,191,0.4)] bg-[rgba(45,212,191,0.25)]'
+                    : 'border-[var(--line)] bg-[rgba(255,255,255,0.05)]'
+                }`}
+              >
+                <span
+                  className={`h-5 w-5 rounded-full bg-white transition ${
+                    hearOwnSounds ? 'translate-x-8' : 'translate-x-1.5'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

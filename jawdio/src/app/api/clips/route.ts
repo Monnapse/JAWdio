@@ -48,6 +48,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, metadata });
   } catch (error) {
+    console.error("Failed to save clip:", error);
     return NextResponse.json({ error: "Failed to save clip" }, { status: 500 });
   }
 }

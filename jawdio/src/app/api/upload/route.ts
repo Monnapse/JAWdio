@@ -1,31 +1,46 @@
-import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
+import { NextResponse } from "next/server";
 
-const soundsPath = path.join(process.cwd(), 'public/sounds');
+import {
+  ensureSoundsPath,
+  ensureUniqueFilePath,
+  getCategoryDirectory,
+  listSoundLibrary,
+  normalizeUploadFilename,
+} from "@/lib/sound-library";
 
 export async function POST(req: Request) {
   try {
+    ensureSoundsPath();
+
     const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const category = formData.get('category') as string;
+    const file = formData.get("file");
+    const category = String(formData.get("category") ?? "Uncategorized");
 
-    if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "No file provided." }, { status: 400 });
+    }
 
+    const normalizedFilename = normalizeUploadFilename(file.name);
+
+    if (!normalizedFilename) {
+      return NextResponse.json(
+        { error: "Only .mp3, .wav, .m4a, and .ogg files are supported." },
+        { status: 400 },
+      );
+    }
+
+    const targetDirectory = getCategoryDirectory(category);
+    fs.mkdirSync(targetDirectory, { recursive: true });
+
+    const filePath = ensureUniqueFilePath(path.join(targetDirectory, normalizedFilename));
     const buffer = Buffer.from(await file.arrayBuffer());
-    
-    // Determine folder: Root if uncategorized, otherwise the folder name
-    const targetDir = (category && category !== "Uncategorized") 
-      ? path.join(soundsPath, category) 
-      : soundsPath;
-
-    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
-
-    const filePath = path.join(targetDir, file.name);
     fs.writeFileSync(filePath, buffer);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, library: listSoundLibrary() });
   } catch (error) {
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    console.error("Upload failed:", error);
+    return NextResponse.json({ error: "Upload failed." }, { status: 500 });
   }
 }
