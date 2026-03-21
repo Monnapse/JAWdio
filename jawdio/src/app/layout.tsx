@@ -25,10 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDraggingRight.current) return;
-      // Screen width minus Mouse X gives us distance from the right edge
       let newWidth = window.innerWidth - e.clientX;
-      if (newWidth < 300) newWidth = 300; // Minimum width
-      if (newWidth > 800) newWidth = 800; // Maximum width
+      if (newWidth < 300) newWidth = 300; 
+      if (newWidth > 800) newWidth = 800; 
       setRightWidth(newWidth);
     };
     const handleMouseUp = () => {
@@ -62,7 +61,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Sidebar isOpen={isSidebarOpen} toggle={() => setIsSidebarOpen(!isSidebarOpen)} />
             
             <div className="content-area flex flex-col min-w-0">
-              {/* Square Header */}
               <header 
                 className="h-12 flex items-center justify-between px-6 bg-[#0f0f13] border-b border-white/5 shrink-0" 
                 style={{ WebkitAppRegion: 'drag' } as any}
@@ -93,28 +91,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
               <UpdateShield />
 
-              {/* SPLIT SCREEN MAIN AREA */}
               <main className="flex-1 flex overflow-hidden">
-                
-                {/* LEFT PANE: Dynamic Content (Clippers, Dashboard) */}
                 <div className="flex-1 overflow-y-auto relative bg-[#09090b] min-w-0">
                   {children}
                 </div>
 
-                {/* RIGHT PANE: Persistent Audio Library */}
                 {showLibraryPane && (
                   <div 
                     className="bg-[#0b0b0e] border-l border-white/5 flex flex-col overflow-hidden shadow-2xl z-10 shrink-0 relative"
                     style={{ width: `${rightWidth}px` }}
                   >
-                    {/* Right Pane Resize Handle */}
                     <div 
                       onMouseDown={startResizingRight}
-                      className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-indigo-500 transition-colors z-[100]"
+                      className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-500 transition-colors z-[100]"
                     />
 
                     <div className="p-4 border-b border-white/5 bg-[#0f0f13] flex items-center gap-3 shrink-0">
-                      <LayoutGrid size={16} className="text-indigo-500" />
+                      <LayoutGrid size={16} className="text-brand-500" />
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
                         Global Soundboard
                       </span>
@@ -124,7 +117,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     </div>
                   </div>
                 )}
-                
               </main>
             </div>
           </div>

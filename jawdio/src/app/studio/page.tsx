@@ -124,7 +124,6 @@ export default function StudioPage() {
   const toggleEngineRef = useRef<() => void>(() => {});
   const markClipRef = useRef<() => void>(() => {});
 
-  // Fetch Desktop Sources on Mount
   useEffect(() => {
     const elApi = (window as any).electronAPI;
     if (isHost && elApi && elApi.getDesktopSources) {
@@ -138,8 +137,8 @@ export default function StudioPage() {
 
       wsRef.current = WaveSurfer.create({
         container: waveformRef.current,
-        waveColor: "#4f46e5",
-        progressColor: "#818cf8",
+        waveColor: "#0087FF",
+        progressColor: "#0087FF",
         cursorColor: "#ffffff",
         barWidth: 2,
         barGap: 1,
@@ -162,7 +161,7 @@ export default function StudioPage() {
         wsRegionsRef.current.addRegion({
           start: 0,
           end: duration,
-          color: "rgba(79, 70, 229, 0.3)",
+          color: "rgba(0, 135, 255, 0.3)",
           drag: true,
           resize: true,
         });
@@ -191,7 +190,7 @@ export default function StudioPage() {
   toggleEngineRef.current = async () => {
     if (isEngineRunning) {
       mediaRecorderRef.current?.stop();
-      originalStreamRef.current?.getTracks().forEach((t) => t.stop()); // Ensure video track turns off
+      originalStreamRef.current?.getTracks().forEach((t) => t.stop());
       setIsEngineRunning(false);
 
       if (animationFrameRef.current)
@@ -238,7 +237,6 @@ export default function StudioPage() {
 
       originalStreamRef.current = stream;
 
-      // Extract ONLY the audio track for processing so we don't encode a massive video file
       const audioTrack = stream.getAudioTracks()[0];
       if (!audioTrack) {
         stream.getTracks().forEach((t) => t.stop());
@@ -276,7 +274,7 @@ export default function StudioPage() {
 
             volumeHistoryRef.current.forEach((val, index) => {
               const barHeight = (val / 128) * canvas.height;
-              ctx.fillStyle = "#4f46e5";
+              ctx.fillStyle = "#0087FF";
               ctx.fillRect(
                 index * barWidth,
                 canvas.height - barHeight,
@@ -443,7 +441,6 @@ export default function StudioPage() {
 
       const fd = new FormData();
       fd.append("file", file);
-      // Change from 'Studio Clips' to 'Uncategorized'
       fd.append("category", "Uncategorized");
 
       await fetch("/api/upload", { method: "POST", body: fd });
@@ -470,7 +467,7 @@ export default function StudioPage() {
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-[#16161a] p-8 border border-white/5 flex flex-col items-center">
             <select
-              className="w-full bg-[#09090b] text-white p-3 border border-white/10 outline-none text-xs font-bold mb-6"
+              className="w-full bg-[#09090b] text-white p-3 border border-white/10 outline-none focus:border-brand-500 text-xs font-bold mb-6"
               value={selectedDevice}
               onChange={(e) => setSelectedDevice(e.target.value)}
               disabled={isEngineRunning || !isHost}
@@ -519,7 +516,7 @@ export default function StudioPage() {
               className={`w-full py-4 font-black text-[10px] uppercase tracking-widest transition-all mb-4 border ${
                 isEngineRunning
                   ? "bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20"
-                  : "bg-emerald-500/10 text-emerald-500 border-emerald-500/50 hover:bg-emerald-500/20"
+                  : "bg-brand-500/10 text-brand-500 border-brand-500/50 hover:bg-brand-500/20"
               }`}
             >
               {isEngineRunning ? "STOP ENGINE" : "START ROLLING BUFFER"}
@@ -530,7 +527,7 @@ export default function StudioPage() {
               disabled={!isEngineRunning && isHost}
               className={`w-32 h-32 rounded-full flex flex-col items-center justify-center gap-2 transition-all shadow-2xl ${
                 isEngineRunning || !isHost
-                  ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer active:scale-95"
+                  ? "bg-brand-600 hover:bg-brand-500 text-white cursor-pointer active:scale-95"
                   : "bg-white/5 text-white/20 cursor-not-allowed"
               }`}
             >
@@ -546,7 +543,7 @@ export default function StudioPage() {
           <div className="bg-[#16161a] p-8 border border-white/5 h-full flex flex-col">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <Scissors size={18} className="text-indigo-500" />
+                <Scissors size={18} className="text-brand-500" />
                 <label className="text-xs font-black uppercase tracking-widest text-white/60">
                   Trim & Render (Drag to Cut)
                 </label>
@@ -559,7 +556,7 @@ export default function StudioPage() {
                   type="text"
                   value={clipName}
                   onChange={(e) => setClipName(e.target.value)}
-                  className="w-full bg-[#09090b] border border-white/10 p-4 text-white text-xl font-black italic outline-none focus:border-indigo-500"
+                  className="w-full bg-[#09090b] border border-white/10 p-4 text-white text-xl font-black italic outline-none focus:border-brand-500"
                   placeholder="Name your clip..."
                 />
 
@@ -570,13 +567,13 @@ export default function StudioPage() {
                 <div className="grid grid-cols-4 gap-4">
                   <div className="col-span-2 bg-[#09090b] border border-white/5 p-3 flex justify-between items-center text-[10px] font-black uppercase text-white/40">
                     <span>Trim Window:</span>
-                    <span className="text-indigo-400">
+                    <span className="text-brand-400">
                       {(trimEnd - trimStart).toFixed(2)}s
                     </span>
                   </div>
                   <button
                     onClick={() => wsRef.current?.playPause()}
-                    className="col-span-2 bg-indigo-600 hover:bg-indigo-500 py-3 flex items-center justify-center text-white"
+                    className="col-span-2 bg-brand-600 hover:bg-brand-500 py-3 flex items-center justify-center text-white"
                   >
                     {isPlaying ? <Pause size={20} /> : <Play size={20} />}
                   </button>
@@ -607,7 +604,7 @@ export default function StudioPage() {
                 <button
                   onClick={saveClipDestructive}
                   disabled={isSaving}
-                  className="w-full mt-auto py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-600/50 disabled:cursor-not-allowed text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                  className="w-full mt-auto py-4 bg-brand-600 hover:bg-brand-500 disabled:bg-brand-600/50 disabled:cursor-not-allowed text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
                 >
                   {isSaving ? (
                     <>

@@ -12,6 +12,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200, height: 850, minWidth: 800, minHeight: 600,
     titleBarStyle: 'hidden', backgroundColor: '#09090b',
+    // ADDED: App Icon for taskbar and window
+    icon: path.join(__dirname, 'public/jawdio.png'), 
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false,

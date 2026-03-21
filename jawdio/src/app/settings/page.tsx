@@ -18,16 +18,15 @@ export default function SettingsPage() {
       </div>
       
       <div className="space-y-6">
-        {/* Mic Input */}
         <div className="bg-[#16161a] p-8 border border-white/5">
           <div className="flex items-center gap-3 mb-6">
-            <Mic size={18} className="text-indigo-500" />
+            <Mic size={18} className="text-brand-500" />
             <label className="text-xs font-black uppercase tracking-widest text-white/60">Input Device</label>
           </div>
           <select 
             onChange={(e) => handleMicChange(e.target.value)}
             value={activeMicId}
-            className="w-full bg-[#09090b] text-white p-4 border border-white/10 focus:border-indigo-500 outline-none transition-all font-bold"
+            className="w-full bg-[#09090b] text-white p-4 border border-white/10 focus:border-brand-500 outline-none transition-all font-bold"
           >
             <option value="none">Device: Off</option>
             {mics.map((mic) => (
@@ -38,46 +37,44 @@ export default function SettingsPage() {
           </select>
         </div>
 
-        {/* Volume Sliders */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-[#16161a] p-8 border border-white/5">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
-                <Mic size={18} className="text-indigo-500" />
+                <Mic size={18} className="text-brand-500" />
                 <label className="text-xs font-black uppercase tracking-widest text-white/60">Mic Level</label>
               </div>
-              <span className="text-[10px] font-black text-indigo-400">{Math.round(micVolume * 100)}%</span>
+              <span className="text-[10px] font-black text-brand-400">{Math.round(micVolume * 100)}%</span>
             </div>
             <input 
               type="range" min="0" max="1" step="0.01" 
               value={micVolume} 
               onChange={(e) => setMicVolume(parseFloat(e.target.value))} 
-              className="w-full h-1.5 bg-[#09090b] appearance-none cursor-pointer accent-indigo-500" 
+              className="w-full h-1.5 bg-[#09090b] appearance-none cursor-pointer accent-brand-500" 
             />
           </div>
 
           <div className="bg-[#16161a] p-8 border border-white/5">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
-                <Music size={18} className="text-indigo-500" />
+                <Music size={18} className="text-brand-500" />
                 <label className="text-xs font-black uppercase tracking-widest text-white/60">Deck Level</label>
               </div>
-              <span className="text-[10px] font-black text-indigo-400">{Math.round(soundVolume * 100)}%</span>
+              <span className="text-[10px] font-black text-brand-400">{Math.round(soundVolume * 100)}%</span>
             </div>
             <input 
               type="range" min="0" max="1" step="0.01" 
               value={soundVolume} 
               onChange={(e) => setSoundVolume(parseFloat(e.target.value))} 
-              className="w-full h-1.5 bg-[#09090b] appearance-none cursor-pointer accent-indigo-500" 
+              className="w-full h-1.5 bg-[#09090b] appearance-none cursor-pointer accent-brand-500" 
             />
           </div>
         </div>
 
-        {/* Hear Own Sounds Toggle */}
         <div className="bg-[#16161a] p-8 border border-white/5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 pr-4">
-              <Headphones size={18} className="text-indigo-500" />
+              <Headphones size={18} className="text-brand-500" />
               <div>
                 <label className="text-xs font-black uppercase tracking-widest text-white/60 block">Hear My Own Sounds</label>
                 <span className="text-[10px] font-bold text-white/40 block mt-1">
@@ -87,20 +84,19 @@ export default function SettingsPage() {
             </div>
             <button 
               onClick={() => setHearOwnSounds(!hearOwnSounds)}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${hearOwnSounds ? 'bg-indigo-500' : 'bg-[#09090b] border border-white/10'}`}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${hearOwnSounds ? 'bg-brand-500' : 'bg-[#09090b] border border-white/10'}`}
             >
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hearOwnSounds ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
           </div>
         </div>
 
-        {/* Output Info */}
-        <div className="bg-indigo-500/5 p-8 border border-indigo-500/10">
+        <div className="bg-brand-500/5 p-8 border border-brand-500/10">
           <div className="flex items-center gap-3 mb-2">
-            <Speaker size={18} className="text-indigo-400" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300/60">Output Destination</p>
+            <Speaker size={18} className="text-brand-400" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-brand-400/60">Output Destination</p>
           </div>
-          <p className="text-xl font-black italic text-indigo-400">{cableName}</p>
+          <p className="text-xl font-black italic text-brand-400">{cableName}</p>
         </div>
       </div>
     </div>

@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@theme {
+  /* REPLACE THESE HEX CODES WITH YOUR SVG COLORS */
+  --color-brand-400: #0087FF; /* Lighter accent */
+  --color-brand-500: #0087FF; /* Main logo color */
+  --color-brand-600: #1661A4; /* Darker hover state */
+}
+
 html, body {
   background: #09090b;
   margin: 0;
@@ -8,17 +15,14 @@ html, body {
   height: 100vh;
 }
 
-/* JAWdio Master Wrapper - Refined */
 .jawdio-layout {
   @apply flex h-screen w-screen bg-[#09090b] overflow-hidden text-slate-100;
 }
 
-/* Content Area */
 .content-area {
   @apply flex-1 flex flex-col bg-[#09090b] overflow-hidden;
 }
 
-/* Polished Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -34,5 +38,5 @@ html, body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.4);
+  background: var(--color-brand-400);
 }

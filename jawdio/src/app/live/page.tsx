@@ -3,7 +3,6 @@ import { useState, useRef, useEffect } from "react";
 import { useAudio } from "@/context/AudioContext";
 import { Scissors, Key, Mic, Square, Loader2, Save } from "lucide-react";
 
-// --- WAV Encoding & Slicing Helpers ---
 const encodeWAV = (audioBuffer: AudioBuffer) => {
   const numOfChan = audioBuffer.numberOfChannels;
   const length = audioBuffer.length * numOfChan * 2 + 44;
@@ -61,7 +60,6 @@ const sliceAndExportAudio = async (blob: Blob, start: number, end: number) => {
   const sampleRate = decodedData.sampleRate;
   const channels = decodedData.numberOfChannels;
   
-  // Safely clamp start and end to the buffer boundaries
   let startOffset = Math.min(Math.floor(sampleRate * start), decodedData.length - 1);
   if (startOffset < 0) startOffset = 0;
   
@@ -69,7 +67,6 @@ const sliceAndExportAudio = async (blob: Blob, start: number, end: number) => {
 
   if (endOffset <= startOffset) endOffset = startOffset + sampleRate;
   
-  // Calculate frames and create context
   const frameCount = Math.max(1, endOffset - startOffset);
   const offlineCtx = new OfflineAudioContext(channels, frameCount, sampleRate);
   
@@ -77,7 +74,6 @@ const sliceAndExportAudio = async (blob: Blob, start: number, end: number) => {
   source.buffer = decodedData;
   source.connect(offlineCtx.destination);
   
-  // Use the clamped start time and correct duration
   source.start(0, startOffset / sampleRate, frameCount / sampleRate);
 
   const renderedBuffer = await offlineCtx.startRendering();
@@ -85,7 +81,6 @@ const sliceAndExportAudio = async (blob: Blob, start: number, end: number) => {
   return encodeWAV(renderedBuffer);
 };
 
-// --- Main Component ---
 interface WordObj {
   word: string;
   start: number;
@@ -120,13 +115,10 @@ export default function LiveClipperPage() {
   const chunksRef = useRef<Blob[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Load Deepgram Key & Desktop Sources
-  // Load Deepgram Key & Desktop Sources
   useEffect(() => {
     const savedKey = localStorage.getItem("deepgram-key");
     const envKey = process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY;
 
-    // Prioritize a manually entered key, then fallback to the .env file
     if (savedKey) {
       setApiKey(savedKey);
     } else if (envKey) {
@@ -183,7 +175,6 @@ export default function LiveClipperPage() {
       const audioStream = new MediaStream([audioTrack]);
       originalStreamRef.current = stream;
 
-      // 1. Connect to Deepgram WebSockets
       const socket = new WebSocket(
         "wss://api.deepgram.com/v1/listen?model=nova-2&smart_format=true",
         ["token", apiKey],
@@ -191,16 +182,15 @@ export default function LiveClipperPage() {
       socketRef.current = socket;
 
       socket.onopen = () => {
-        // 2. Start recording in 250ms chunks to stream
         const recorder = new MediaRecorder(audioStream, {
           mimeType: "audio/webm",
         });
 
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) {
-            chunksRef.current.push(e.data); // Save to local buffer for rendering later
+            chunksRef.current.push(e.data);
             if (socket.readyState === 1) {
-              socket.send(e.data); // Stream to STT live
+              socket.send(e.data);
             }
           }
         };
@@ -229,7 +219,6 @@ export default function LiveClipperPage() {
           setInterimWords(words);
         }
 
-        // Auto-scroll to bottom
         if (containerRef.current) {
           containerRef.current.scrollTop = containerRef.current.scrollHeight;
         }
@@ -256,40 +245,34 @@ export default function LiveClipperPage() {
     }
 
     try {
-      // 1. Grab all spans that represent words inside our container
       const allSpans = Array.from(
         containerRef.current.querySelectorAll("span[data-start]")
       );
       
-      // 2. Filter down to only spans that intersect with the user's selection
       const selectedSpans = allSpans.filter((span) =>
         selection.containsNode(span, true)
       );
 
-      // If no valid words were highlighted, cancel
       if (selectedSpans.length === 0) {
         setSelectionRange(null);
         return;
       }
 
-      // 3. Get start and end boundaries
       const firstSpan = selectedSpans[0];
       const lastSpan = selectedSpans[selectedSpans.length - 1];
 
       const actualStart = parseFloat(firstSpan.getAttribute("data-start") || "0");
       const actualEnd = parseFloat(lastSpan.getAttribute("data-end") || "0");
 
-      // 4. Extract the text from the highlighted spans to auto-fill the name
       const selectedText = selectedSpans.map(span => span.textContent).join(" ");
       setClipName(selectedText.trim());
 
-      // 5. Calculate position for the popup menu
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
 
       setSelectionRange({
-        start: actualStart - 0.5, // Increased from 0.2 to 0.5 to catch early consonants
-        end: actualEnd + 0.4,     // Slightly bumped end padding to 400ms 
+        start: actualStart - 0.5, 
+        end: actualEnd + 0.4,      
         top: rect.top - 70,
         left: rect.left + rect.width / 2 - 128,
       });
@@ -320,14 +303,12 @@ export default function LiveClipperPage() {
 
       const fd = new FormData();
       fd.append("file", file);
-      // Change from "Studio Clips" to "Uncategorized"
       fd.append("category", "Uncategorized");
 
       await fetch("/api/upload", { method: "POST", body: fd });
       loadSounds();
       setSelectionRange(null);
       setClipName("");
-      // Update the success message
       alert("Saved to Soundboard successfully!");
     } catch (err) {
       console.error(err);
@@ -351,7 +332,6 @@ export default function LiveClipperPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
-        {/* SIDEBAR SETTINGS */}
         <div className="lg:col-span-1 space-y-6 flex flex-col">
           <div className="bg-[#16161a] p-6 border border-white/5">
             {!process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY && (
@@ -364,7 +344,7 @@ export default function LiveClipperPage() {
                   value={apiKey}
                   onChange={(e) => saveApiKey(e.target.value)}
                   placeholder="Enter Deepgram Key..."
-                  className="w-full bg-[#09090b] border border-white/10 p-3 text-white text-xs outline-none focus:border-indigo-500 mb-6"
+                  className="w-full bg-[#09090b] border border-white/10 p-3 text-white text-xs outline-none focus:border-brand-500 mb-6"
                 />
               </>
             )}
@@ -373,7 +353,7 @@ export default function LiveClipperPage() {
               <Mic size={14} /> Target Source
             </label>
             <select
-              className="w-full bg-[#09090b] text-white p-3 border border-white/10 outline-none text-xs font-bold mb-6"
+              className="w-full bg-[#09090b] text-white p-3 border border-white/10 outline-none focus:border-brand-500 text-xs font-bold mb-6"
               value={selectedDevice}
               onChange={(e) => setSelectedDevice(e.target.value)}
               disabled={isListening || !isHost}
@@ -404,7 +384,7 @@ export default function LiveClipperPage() {
               className={`w-full py-4 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${
                 isListening
                   ? "bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20"
-                  : "bg-emerald-500/10 text-emerald-500 border-emerald-500/50 hover:bg-emerald-500/20"
+                  : "bg-brand-500/10 text-brand-500 border-brand-500/50 hover:bg-brand-500/20"
               }`}
             >
               {isListening ? (
@@ -420,13 +400,12 @@ export default function LiveClipperPage() {
           </div>
         </div>
 
-        {/* LIVE TRANSCRIPT AREA */}
         <div className="lg:col-span-3 bg-[#16161a] border border-white/5 relative flex flex-col h-full min-h-0">
           <div className="p-4 border-b border-white/5 bg-[#0f0f13] flex justify-between items-center">
             <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
               {isListening ? (
-                <span className="text-emerald-500 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />{" "}
+                <span className="text-brand-500 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />{" "}
                   Live Transcript
                 </span>
               ) : (
@@ -441,7 +420,7 @@ export default function LiveClipperPage() {
           <div
             ref={containerRef}
             onMouseUp={handleSelection}
-            className="flex-1 p-8 overflow-y-auto select-text font-medium text-2xl leading-relaxed text-white/80 selection:bg-indigo-500/40 selection:text-white">
+            className="flex-1 p-8 overflow-y-auto select-text font-medium text-2xl leading-relaxed text-white/80 selection:bg-brand-500/40 selection:text-white">
             {finalWords.length === 0 &&
               interimWords.length === 0 &&
               !isListening && (
@@ -450,7 +429,6 @@ export default function LiveClipperPage() {
                 </div>
               )}
 
-            {/* Render Finalized Words */}
             {finalWords.map((w) => (
               <span
                 key={w.id}
@@ -462,7 +440,6 @@ export default function LiveClipperPage() {
               </span>
             ))}
 
-            {/* Render Interim (Guess) Words */}
             {interimWords.map((w) => (
               <span
                 key={w.id}
@@ -475,7 +452,6 @@ export default function LiveClipperPage() {
             ))}
           </div>
 
-          {/* FLOATING ACTION BUTTON TO CLIP */}
           {selectionRange && (
             <div
               className="fixed z-50 bg-[#09090b] border border-white/20 p-3 shadow-2xl animate-in zoom-in-95 duration-100 flex flex-col gap-3 w-64"
@@ -487,12 +463,12 @@ export default function LiveClipperPage() {
                 onChange={(e) => setClipName(e.target.value)}
                 placeholder="Name your clip..."
                 autoFocus
-                className="w-full bg-[#16161a] border border-white/10 p-2 text-white text-xs outline-none focus:border-indigo-500"
+                className="w-full bg-[#16161a] border border-white/10 p-2 text-white text-xs outline-none focus:border-brand-500"
               />
               <button
                 onClick={renderSelectedAudio}
                 disabled={isSaving}
-                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                className="w-full py-2 bg-brand-600 hover:bg-brand-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
               >
                 {isSaving ? (
                   <Loader2 size={14} className="animate-spin" />

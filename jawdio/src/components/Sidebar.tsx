@@ -1,6 +1,5 @@
 'use client';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAudio } from '@/context/AudioContext';
 import { LayoutGrid, Settings2, Square, MicVocal, Type } from 'lucide-react';
@@ -47,33 +46,29 @@ export default function Sidebar({ isOpen, toggle }: { isOpen: boolean, toggle: (
     >
       <div className="flex flex-col h-full w-full overflow-hidden relative">
         <div className="p-8 flex flex-col items-start gap-3">
-          <Image 
-            src="/jawdio.png" 
+          <img 
+            src="/jawdio.svg" 
             alt="JAWdio Logo" 
-            width={140} 
-            height={45} 
-            className="object-contain drop-shadow-lg"
-            priority
+            className="w-[140px] h-auto object-contain drop-shadow-lg"
           />
           <p className="text-[9px] uppercase tracking-[0.3em] text-white/30 font-black ml-1">v1.0.4 // Production</p>
         </div>
 
         <nav className="flex-1 px-4 space-y-1">
-          <Link href="/" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+          <Link href="/" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
             <LayoutGrid size={18} /> Dashboard
           </Link>
           
-          <Link href="/studio" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/studio' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+          <Link href="/studio" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/studio' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
             <MicVocal size={18} /> Clipper Studio
           </Link>
 
-          <Link href="/live" className="flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 text-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5 border border-transparent hover:border-emerald-500/10 group">
-            <Type size={18} className="group-hover:text-emerald-400" />
-            <span className="text-[11px] font-black tracking-widest uppercase">Live Text Clipper</span>
+          <Link href="/live" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/live' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+            <Type size={18} /> Live Text Clipper
           </Link>
 
           {isHost && (
-            <Link href="/settings" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/settings' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+            <Link href="/settings" onClick={() => {if(window.innerWidth < 1024) toggle()}} className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-bold transition-all duration-200 ${pathname === '/settings' ? 'bg-brand-500/10 text-brand-400 border border-brand-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white border border-transparent'}`}>
               <Settings2 size={18} /> Settings
             </Link>
           )}
@@ -88,7 +83,7 @@ export default function Sidebar({ isOpen, toggle }: { isOpen: boolean, toggle: (
       
       <div 
         onMouseDown={startResizing}
-        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-indigo-500/50 transition-colors z-[100]"
+        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-500/50 transition-colors z-[100]"
       />
     </aside>
   );
