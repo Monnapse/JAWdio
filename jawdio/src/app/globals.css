@@ -307,7 +307,7 @@ textarea {
   }
 }
 
-@media (min-width: 1536px) {
+@media (min-width: 1280px) {
   .shell-library {
     width: var(--library-width, 27rem);
     max-height: none;

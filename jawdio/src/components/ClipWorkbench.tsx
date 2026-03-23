@@ -24,6 +24,10 @@ type DesktopMediaTrackConstraints = MediaTrackConstraints & {
   };
 };
 
+type AudioElementWithSink = HTMLAudioElement & {
+  setSinkId?: (sinkId: string) => Promise<void>;
+};
+
 type TranscriptStatus = 'disabled' | 'ready' | 'connecting' | 'live' | 'unavailable';
 
 interface LiveWord {
@@ -69,19 +73,109 @@ interface SelectionRange {
 }
 
 interface PreviewSnapshot {
-  blob: Blob;
+  blob: Blob | null;
   window: BufferWindow;
   peaks: Array<Float32Array | number[]>;
   audioDuration: number;
+  sampleRate: number;
+  sampleCount: number;
+  circularWriteIndex?: number;
+}
+
+interface LiveWaveformState {
+  peaks: Float32Array[];
+  capacity: number;
+  writeIndex: number;
+  sampleCount: number;
+  sampleRate: number;
+  bucketCount: number;
+  processedFrames: number;
+  sourceSampleRate: number;
+  processorFrameCount: number;
 }
 
 const BUFFER_SECONDS = 60;
 const RECORDER_TIMESLICE_MS = 250;
+const AUDIO_PROCESSOR_BUFFER_SIZE = 2048;
+const LIVE_WAVEFORM_BUCKET_COUNT = 32;
 const TRANSCRIPT_RETENTION_SECONDS = 240;
 const DEFAULT_SELECTION_SECONDS = 8;
 const MIN_PREVIEW_SECONDS = 0.35;
 const TRANSCRIPT_SAMPLE_RATE = 16000;
 const WORD_TIMING_LEAD_SECONDS = 0.26;
+
+const createLiveWaveformState = (
+  channelCount: number,
+  sourceSampleRate: number,
+  processorFrameCount: number,
+): LiveWaveformState => {
+  const bucketCount = Math.max(
+    1,
+    Math.min(LIVE_WAVEFORM_BUCKET_COUNT, Math.floor(processorFrameCount / 8)),
+  );
+  const samplesPerProcessorBuffer = bucketCount * 2;
+  const effectiveSampleRate = (sourceSampleRate * samplesPerProcessorBuffer) / processorFrameCount;
+  const capacity = Math.max(
+    samplesPerProcessorBuffer,
+    Math.floor((BUFFER_SECONDS * effectiveSampleRate) / 2) * 2,
+  );
+
+  return {
+    peaks: Array.from({ length: channelCount }, () => new Float32Array(capacity)),
+    capacity,
+    writeIndex: 0,
+    sampleCount: 0,
+    sampleRate: effectiveSampleRate,
+    bucketCount,
+    processedFrames: 0,
+    sourceSampleRate,
+    processorFrameCount,
+  };
+};
+
+const appendLiveWaveformPeaks = (state: LiveWaveformState, buffer: AudioBuffer) => {
+  if (buffer.numberOfChannels === 0 || buffer.length === 0) {
+    return;
+  }
+
+  const nextWriteIndex = state.writeIndex;
+  const nextWriteValues = state.bucketCount * 2;
+
+  for (let channelIndex = 0; channelIndex < state.peaks.length; channelIndex += 1) {
+    const samples = buffer.getChannelData(channelIndex);
+    for (let bucketIndex = 0; bucketIndex < state.bucketCount; bucketIndex += 1) {
+      const bucketStart = Math.floor((bucketIndex / state.bucketCount) * samples.length);
+      const bucketEnd = Math.max(
+        bucketStart + 1,
+        Math.floor(((bucketIndex + 1) / state.bucketCount) * samples.length),
+      );
+      let min = 1;
+      let max = -1;
+
+      for (let sampleIndex = bucketStart; sampleIndex < bucketEnd; sampleIndex += 1) {
+        const sample = samples[sampleIndex];
+
+        if (sample < min) {
+          min = sample;
+        }
+
+        if (sample > max) {
+          max = sample;
+        }
+      }
+
+      const minIndex = (nextWriteIndex + bucketIndex * 2) % state.capacity;
+      const maxIndex = (minIndex + 1) % state.capacity;
+
+      state.peaks[channelIndex][minIndex] = min;
+      state.peaks[channelIndex][maxIndex] = max;
+    }
+  }
+
+  state.writeIndex = (nextWriteIndex + nextWriteValues) % state.capacity;
+  state.sampleCount = Math.min(state.capacity, state.sampleCount + nextWriteValues);
+  state.processedFrames += buffer.length;
+};
 
 const buildWordKey = (word: Pick<LiveWord, 'word' | 'start' | 'end'>) =>
   `${word.word}:${word.start.toFixed(3)}:${word.end.toFixed(3)}`;
@@ -262,7 +356,7 @@ const transcriptStateMeta: Record<
 };
 
 export default function ClipWorkbench() {
-  const { isHost, loadSounds, mics } = useAudio();
+  const { isHost, loadSounds, mics, previewOutputId } = useAudio();
 
   const [selectedDevice, setSelectedDevice] = useState('none');
   const [desktopSources, setDesktopSources] = useState<DesktopSource[]>([]);
@@ -308,8 +402,11 @@ export default function ClipWorkbench() {
   const isRenderingBufferRef = useRef(false);
   const pendingBufferElapsedRef = useRef<number | null>(null);
   const latestPreviewSnapshotRef = useRef<PreviewSnapshot | null>(null);
+  const latestCommittedSnapshotRef = useRef<PreviewSnapshot | null>(null);
+  const liveWaveformRef = useRef<LiveWaveformState | null>(null);
   const isTimelineInteractingRef = useRef(false);
   const lastBufferCommitRef = useRef(0);
+  const stopEngineRef = useRef<() => Promise<void>>(async () => undefined);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewUrlRef = useRef<string | null>(null);
   const toggleEngineCommandRef = useRef<() => Promise<void>>(async () => undefined);
@@ -391,15 +488,30 @@ export default function ClipWorkbench() {
       options: {
         followLive?: boolean;
         forceLatestSelection?: boolean;
+        skipSelection?: boolean;
       } = {},
     ) => {
-      const { followLive = shouldFollowLiveEdgeRef.current, forceLatestSelection = false } = options;
+      const {
+        followLive = shouldFollowLiveEdgeRef.current,
+        forceLatestSelection = false,
+        skipSelection = false,
+      } = options;
       const nextWindow = snapshot.window;
       const currentSelection = selectionRangeRef.current;
 
       setActivePreviewSnapshot(snapshot);
-      setWorkingBlob(snapshot.blob);
+      latestPreviewSnapshotRef.current = snapshot;
+      bufferWindowRef.current = nextWindow;
+
+      if (snapshot.blob) {
+        setWorkingBlob(snapshot.blob);
+      }
+
       setBufferWindow(nextWindow);
+
+      if (skipSelection) {
+        return;
+      }
 
       if (forceLatestSelection || !hasManualSelectionRef.current || !currentSelection) {
         const autoSelection = {
@@ -456,6 +568,38 @@ export default function ClipWorkbench() {
     },
     [],
   );
+
+  const publishLiveWaveformSnapshot = useCallback(() => {
+    const liveWaveform = liveWaveformRef.current;
+
+    if (!liveWaveform || liveWaveform.sampleCount === 0) {
+      return;
+    }
+
+    const audioDuration = liveWaveform.sampleCount / liveWaveform.sampleRate;
+    const audioEnd = liveWaveform.processedFrames / liveWaveform.sourceSampleRate;
+    const snapshot = {
+      blob: null,
+      window: {
+        start: Math.max(0, audioEnd - audioDuration),
+        end: audioEnd,
+        duration: audioDuration,
+      },
+      peaks: liveWaveform.peaks,
+      audioDuration,
+      sampleRate: liveWaveform.sampleRate,
+      sampleCount: liveWaveform.sampleCount,
+      circularWriteIndex:
+        liveWaveform.sampleCount === liveWaveform.capacity
+          ? liveWaveform.writeIndex
+          : undefined,
+    };
+
+    applyPreviewSnapshot(snapshot, {
+      followLive: shouldFollowLiveEdgeRef.current,
+      skipSelection: isTimelineInteractingRef.current,
+    });
+  }, [applyPreviewSnapshot]);
 
   const handleTimelineSelectionChange = useCallback((nextSelection: SelectionRange) => {
     if (!hasManualSelectionRef.current) {
@@ -555,12 +699,12 @@ export default function ClipWorkbench() {
       const { forceRender = false, forceVisibleRefresh = false } = options;
 
       if (!headerChunkRef.current || chunksRef.current.length === 0) {
-        return;
+        return null;
       }
 
       if (isRenderingBufferRef.current && !forceRender) {
         pendingBufferElapsedRef.current = elapsedSeconds;
-        return;
+        return null;
       }
 
       isRenderingBufferRef.current = true;
@@ -591,19 +735,21 @@ export default function ClipWorkbench() {
               decodedData.getChannelData(index),
             ),
             audioDuration,
+            sampleRate: decodedData.sampleRate,
+            sampleCount: decodedData.length,
           };
 
-          latestPreviewSnapshotRef.current = snapshot;
+          latestCommittedSnapshotRef.current = snapshot;
+          setWorkingBlob(snapshot.blob);
 
-          if (
-            (shouldFollowLiveEdgeRef.current && !isTimelineInteractingRef.current) ||
-            !bufferWindowRef.current.duration ||
-            forceVisibleRefresh
-          ) {
+          if (forceVisibleRefresh || !latestPreviewSnapshotRef.current) {
             applyPreviewSnapshot(snapshot, {
               followLive: shouldFollowLiveEdgeRef.current,
+              skipSelection: isTimelineInteractingRef.current && !forceVisibleRefresh,
             });
           }
+
+          return snapshot;
         } finally {
           if (audioContext.state !== 'closed') {
             await audioContext.close().catch(() => undefined);
@@ -611,6 +757,7 @@ export default function ClipWorkbench() {
         }
       } catch (error) {
         console.error('Failed to refresh the rolling waveform:', error);
+        return null;
       } finally {
         isRenderingBufferRef.current = false;
 
@@ -779,6 +926,7 @@ export default function ClipWorkbench() {
     pendingBufferElapsedRef.current = null;
     isRenderingBufferRef.current = false;
     latestPreviewSnapshotRef.current = null;
+    liveWaveformRef.current = null;
     engineStartedAtRef.current = null;
     isTimelineInteractingRef.current = false;
     updateFollowLive(true);
@@ -839,6 +987,8 @@ export default function ClipWorkbench() {
       pendingBufferElapsedRef.current = null;
       isRenderingBufferRef.current = false;
       latestPreviewSnapshotRef.current = null;
+      latestCommittedSnapshotRef.current = null;
+      liveWaveformRef.current = null;
       headerChunkRef.current = null;
       chunksRef.current = [];
       wordSequenceRef.current = 0;
@@ -867,7 +1017,11 @@ export default function ClipWorkbench() {
       const source = audioContext.createMediaStreamSource(audioStream);
       const analyser = audioContext.createAnalyser();
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const transcriptProcessor = audioContext.createScriptProcessor(4096, 2, 1);
+      const transcriptProcessor = audioContext.createScriptProcessor(
+        AUDIO_PROCESSOR_BUFFER_SIZE,
+        2,
+        1,
+      );
       const transcriptSilence = audioContext.createGain();
 
       analyser.fftSize = 256;
@@ -876,11 +1030,37 @@ export default function ClipWorkbench() {
       source.connect(transcriptProcessor);
       transcriptProcessor.connect(transcriptSilence);
       transcriptSilence.connect(audioContext.destination);
+      await audioContext.resume().catch(() => undefined);
       audioContextRef.current = audioContext;
       transcriptProcessorRef.current = transcriptProcessor;
       transcriptSilenceRef.current = transcriptSilence;
 
       transcriptProcessor.onaudioprocess = (event) => {
+        const inputBuffer = event.inputBuffer;
+        const inputChannelCount = inputBuffer.numberOfChannels;
+
+        if (inputChannelCount > 0) {
+          const currentWaveform = liveWaveformRef.current;
+
+          if (
+            !currentWaveform ||
+            currentWaveform.peaks.length !== inputChannelCount ||
+            currentWaveform.sourceSampleRate !== inputBuffer.sampleRate ||
+            currentWaveform.processorFrameCount !== inputBuffer.length
+          ) {
+            liveWaveformRef.current = createLiveWaveformState(
+              inputChannelCount,
+              inputBuffer.sampleRate,
+              inputBuffer.length,
+            );
+          }
+
+          if (liveWaveformRef.current) {
+            appendLiveWaveformPeaks(liveWaveformRef.current, inputBuffer);
+            publishLiveWaveformSnapshot();
+          }
+        }
+
         const socket = transcriptSocketRef.current;
 
         if (socket?.readyState !== WebSocket.OPEN) {
@@ -888,7 +1068,7 @@ export default function ClipWorkbench() {
         }
 
         const linear16Chunk = convertAudioBufferToLinear16(
-          event.inputBuffer,
+          inputBuffer,
           TRANSCRIPT_SAMPLE_RATE,
         );
 
@@ -982,6 +1162,7 @@ export default function ClipWorkbench() {
   }, [
     commitRollingBuffer,
     hasConfiguredApiKey,
+    publishLiveWaveformSnapshot,
     selectedDevice,
     startTranscriptStream,
     stopEngine,
@@ -1007,16 +1188,35 @@ export default function ClipWorkbench() {
     await toggleEngine();
   }, [isHost, toggleEngine]);
 
+  const getRenderableBlob = useCallback(async () => {
+    if (isEngineRunning && engineStartedAtRef.current) {
+      const snapshot = await commitRollingBuffer(
+        (performance.now() - engineStartedAtRef.current) / 1000,
+        { forceRender: true },
+      );
+
+      return snapshot?.blob ?? latestCommittedSnapshotRef.current?.blob ?? workingBlob;
+    }
+
+    return latestCommittedSnapshotRef.current?.blob ?? workingBlob;
+  }, [commitRollingBuffer, isEngineRunning, workingBlob]);
+
   const saveClip = useCallback(async () => {
-    if (!workingBlob || !clipName.trim() || !relativeSelection) {
+    if (!clipName.trim() || !relativeSelection) {
       return;
     }
 
     setIsSaving(true);
 
     try {
+      const renderableBlob = await getRenderableBlob();
+
+      if (!renderableBlob) {
+        return;
+      }
+
       const trimmedWav = await sliceAndExportAudio(
-        workingBlob,
+        renderableBlob,
         relativeSelection.start,
         relativeSelection.end,
       );
@@ -1044,7 +1244,7 @@ export default function ClipWorkbench() {
     } finally {
       setIsSaving(false);
     }
-  }, [clipName, loadSounds, relativeSelection, workingBlob]);
+  }, [clipName, getRenderableBlob, loadSounds, relativeSelection]);
 
   useEffect(() => {
     const savedKey = window.localStorage.getItem('deepgram-key');
@@ -1085,10 +1285,14 @@ export default function ClipWorkbench() {
   }, [isHost]);
 
   useEffect(() => {
-    return () => {
-      void stopEngine();
-    };
+    stopEngineRef.current = stopEngine;
   }, [stopEngine]);
+
+  useEffect(() => {
+    return () => {
+      void stopEngineRef.current();
+    };
+  }, []);
 
   useEffect(() => {
     if (!clipName.trim() && alignedSelectionWords) {
@@ -1104,11 +1308,17 @@ export default function ClipWorkbench() {
       return;
     }
 
-    if (!workingBlob || !relativeSelection) {
+    if (!relativeSelection) {
       return;
     }
 
     try {
+      const renderableBlob = await getRenderableBlob();
+
+      if (!renderableBlob) {
+        return;
+      }
+
       const previewStart =
         relativeSelection.duration >= MIN_PREVIEW_SECONDS
           ? relativeSelection.start
@@ -1121,7 +1331,7 @@ export default function ClipWorkbench() {
         Math.max(relativeSelection.end, previewStart + MIN_PREVIEW_SECONDS),
       );
       const trimmedWav = await sliceAndExportAudio(
-        workingBlob,
+        renderableBlob,
         previewStart,
         previewEnd,
       );
@@ -1129,10 +1339,37 @@ export default function ClipWorkbench() {
       stopPreviewAudio();
 
       const previewUrl = URL.createObjectURL(trimmedWav);
-      const previewAudio = new Audio(previewUrl);
+      const previewAudio = new Audio(previewUrl) as AudioElementWithSink;
 
       previewAudioRef.current = previewAudio;
       previewUrlRef.current = previewUrl;
+
+      if (!previewOutputId) {
+        stopPreviewAudio();
+        setTranscriptMessage(
+          'Choose a Trim Preview Output in Settings before previewing private edits.',
+        );
+        return;
+      }
+
+      if (typeof previewAudio.setSinkId !== 'function') {
+        stopPreviewAudio();
+        setTranscriptMessage(
+          'Private preview routing is unavailable in this environment.',
+        );
+        return;
+      }
+
+      try {
+        await previewAudio.setSinkId(previewOutputId);
+      } catch {
+        stopPreviewAudio();
+        setTranscriptMessage(
+          'Preview output routing failed. Pick a different local preview output in Settings.',
+        );
+        return;
+      }
+
       previewAudio.onended = () => {
         stopPreviewAudio();
       };
@@ -1285,7 +1522,7 @@ export default function ClipWorkbench() {
                 type="button"
                 onClick={() => focusLatestSelection()}
                 className="ghost-button"
-                disabled={!workingBlob}
+                disabled={!activePreviewSnapshot}
               >
                 <Bookmark size={16} />
                 Latest 8s
@@ -1319,7 +1556,7 @@ export default function ClipWorkbench() {
             </div>
           </div>
 
-          {workingBlob ? (
+          {activePreviewSnapshot ? (
             <div className="flex min-h-0 flex-1 flex-col gap-5">
               <input
                 type="text"
@@ -1357,7 +1594,12 @@ export default function ClipWorkbench() {
                   </strong>
                 </div>
 
-                <button type="button" onClick={handlePreviewToggle} className="ghost-button">
+                <button
+                  type="button"
+                  onClick={handlePreviewToggle}
+                  className="ghost-button"
+                  disabled={!workingBlob || !relativeSelection}
+                >
                   {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                   {isPlaying ? 'Pause Preview' : 'Preview Trim'}
                 </button>
@@ -1392,7 +1634,7 @@ export default function ClipWorkbench() {
                 type="button"
                 onClick={() => void saveClip()}
                 className="accent-button mt-auto"
-                disabled={isSaving || !relativeSelection}
+                disabled={isSaving || !workingBlob || !relativeSelection || !clipName.trim()}
               >
                 {isSaving ? (
                   <Loader2 size={16} className="animate-spin" />

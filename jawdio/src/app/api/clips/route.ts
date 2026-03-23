@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const clipsPath = path.join(process.cwd(), 'public/clips');
+import { buildMediaUrl } from '@/lib/media';
+import { getClipsRoot } from '@/lib/storage';
+
+const clipsPath = getClipsRoot();
 
 export async function GET() {
   if (!fs.existsSync(clipsPath)) fs.mkdirSync(clipsPath, { recursive: true });
@@ -40,7 +43,7 @@ export async function POST(req: Request) {
     const metadata = {
       id,
       name: name || 'Untitled Clip',
-      filename: `/clips/${audioFileName}`,
+      filename: buildMediaUrl('clips', audioFileName),
       start: parseFloat(start),
       end: parseFloat(end)
     };

@@ -7,6 +7,7 @@ import { useAudio } from '@/context/AudioContext';
 export default function SettingsPage() {
   const {
     activeMicId,
+    broadcastOutputId,
     cableName,
     handleMicChange,
     hearOwnSounds,
@@ -14,8 +15,11 @@ export default function SettingsPage() {
     micVolume,
     mics,
     outputs,
+    previewOutputId,
+    setBroadcastOutputId,
     setHearOwnSounds,
     setMicVolume,
+    setPreviewOutputId,
     setSoundVolume,
     soundVolume,
   } = useAudio();
@@ -164,9 +168,27 @@ export default function SettingsPage() {
             </div>
 
             <div className="panel-soft p-5">
-              <p className="text-sm text-[var(--text-muted)]">Primary route</p>
-              <p className="mt-2 font-[var(--font-display)] text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
-                {cableName}
+              <label className="text-sm text-[var(--text-muted)]" htmlFor="broadcast-output">
+                Primary route
+              </label>
+              <select
+                id="broadcast-output"
+                value={broadcastOutputId}
+                onChange={(event) => void setBroadcastOutputId(event.target.value)}
+                className="select-field mt-3"
+              >
+                <option value="">Select a broadcast output</option>
+                {outputs.map((output) => (
+                  <option key={output.deviceId} value={output.deviceId}>
+                    {output.label || `Output ${output.deviceId.slice(0, 6)}`}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-3 text-sm text-[var(--text-muted)]">
+                Current target: <span className="text-[var(--text-strong)]">{cableName}</span>
+              </p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
+                Pick `Voicemeeter AUX Input` here if that is the bus you want the board to feed.
               </p>
             </div>
           </div>
@@ -185,6 +207,31 @@ export default function SettingsPage() {
                   <p className="mt-2 text-sm text-[var(--text-muted)]">
                     This only adds a second local copy of pad playback. It does not mute whatever
                     is already monitoring the broadcast cable in Windows, OBS, or your audio gear.
+                  </p>
+                  <label
+                    className="mt-4 block text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]"
+                    htmlFor="preview-output"
+                  >
+                    Trim Preview Output
+                  </label>
+                  <select
+                    id="preview-output"
+                    value={previewOutputId}
+                    onChange={(event) => void setPreviewOutputId(event.target.value)}
+                    className="select-field mt-2"
+                  >
+                    <option value="">Select a local preview output</option>
+                    {outputs
+                      .filter((output) => output.deviceId !== broadcastOutputId)
+                      .map((output) => (
+                        <option key={output.deviceId} value={output.deviceId}>
+                          {output.label || `Output ${output.deviceId.slice(0, 6)}`}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="mt-2 text-xs text-[var(--text-muted)]">
+                    All outputs except the active broadcast bus are available here. Picking a
+                    virtual output can route preview audio back into OBS, Fortnite, or your board.
                   </p>
                 </div>
               </div>

@@ -21,15 +21,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
+import type { SoundFile, SoundLibraryState } from '@/context/AudioContext';
 import { useAudio } from '@/context/AudioContext';
-
-interface LibrarySound {
-  name: string;
-  filename: string;
-  category: string;
-}
-
-type LibraryState = Record<string, LibrarySound[]>;
 
 interface ContextMenuState {
   x: number;
@@ -40,17 +33,20 @@ interface ContextMenuState {
 
 const SUPPORTED_UPLOAD_TYPES = '.mp3,.wav,.m4a,.ogg';
 
-export default function AudioLibrary() {
+export default function AudioLibrary({
+  variant = 'panel',
+}: {
+  variant?: 'panel' | 'page';
+}) {
   const {
-    sounds,
-    loadSounds,
+    soundLibrary,
+    refreshSoundLibrary,
     handleButtonClick,
     handleDeleteSound,
     hotkeys,
     setHotkeys,
   } = useAudio();
 
-  const [library, setLibrary] = useState<LibraryState>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -61,52 +57,13 @@ export default function AudioLibrary() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [renameValue, setRenameValue] = useState('');
   const [targetFile, setTargetFile] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<LibrarySound | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SoundFile | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [bindingTarget, setBindingTarget] = useState<string | null>(null);
 
   const dragDepthRef = useRef(0);
-  const refreshLibrary = useCallback(async () => {
-    const response = await fetch(`/api/sounds?t=${Date.now()}`);
-
-    if (!response.ok) {
-      throw new Error(`Failed to load library: ${response.status}`);
-    }
-
-    const data = (await response.json()) as { library: LibraryState };
-    setLibrary(data.library);
-    setExpanded((current) => {
-      const nextExpanded: Record<string, boolean> = { ...current };
-
-      Object.keys(data.library).forEach((category) => {
-        if (!(category in nextExpanded)) {
-          nextExpanded[category] = true;
-        }
-      });
-
-      Object.keys(nextExpanded).forEach((category) => {
-        if (!(category in data.library)) {
-          delete nextExpanded[category];
-        }
-      });
-
-      if (Object.keys(current).length === 0) {
-        return Object.fromEntries(
-          Object.keys(data.library).map((category) => [category, true]),
-        );
-      }
-
-      return nextExpanded;
-    });
-  }, []);
-
-  useEffect(() => {
-    const refreshTimer = window.setTimeout(() => {
-      void refreshLibrary();
-    }, 0);
-
-    return () => window.clearTimeout(refreshTimer);
-  }, [refreshLibrary, sounds]);
+  const isPage = variant === 'page';
+  const library = soundLibrary;
 
   const saveHotkey = useCallback(
     (file: string, keyString: string | null) => {
@@ -183,9 +140,9 @@ export default function AudioLibrary() {
         }
       }
 
-      await Promise.all([refreshLibrary(), loadSounds()]);
+      await refreshSoundLibrary();
     },
-    [loadSounds, refreshLibrary],
+    [refreshSoundLibrary],
   );
 
   useEffect(() => {
@@ -272,12 +229,15 @@ export default function AudioLibrary() {
           items.filter((item) => item.name.toLowerCase().includes(normalizedQuery)),
         ])
         .filter(([, items]) => items.length > 0),
-    ) as LibraryState;
+    ) as SoundLibraryState;
   }, [deferredSearchQuery, library]);
 
   const categories = Object.entries(filteredLibrary);
   const totalSounds = Object.values(library).reduce((sum, items) => sum + items.length, 0);
   const totalCategories = Object.keys(library).length;
+  const boardGridClassName = isPage
+    ? 'grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
+    : 'grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(8.75rem,1fr))]';
 
   const handleCreateCategory = async () => {
     const trimmedName = newCategoryName.trim();
@@ -300,7 +260,7 @@ export default function AudioLibrary() {
 
     setNewCategoryName('');
     setShowCategoryModal(false);
-    await Promise.all([refreshLibrary(), loadSounds()]);
+    await refreshSoundLibrary();
   };
 
   const handleRename = async () => {
@@ -327,7 +287,7 @@ export default function AudioLibrary() {
     setShowRenameModal(false);
     setTargetFile(null);
     setRenameValue('');
-    await Promise.all([refreshLibrary(), loadSounds()]);
+    await refreshSoundLibrary();
   };
 
   const handleDropOnCategory = async (
@@ -365,7 +325,7 @@ export default function AudioLibrary() {
       return;
     }
 
-    await Promise.all([refreshLibrary(), loadSounds()]);
+    await refreshSoundLibrary();
   };
 
   const handleDeleteConfirmed = async () => {
@@ -375,7 +335,6 @@ export default function AudioLibrary() {
 
     try {
       await handleDeleteSound(deleteTarget.filename);
-      await refreshLibrary();
       setDeleteTarget(null);
     } catch (error) {
       console.error(error);
@@ -385,7 +344,7 @@ export default function AudioLibrary() {
 
   const openContextMenu = (
     event: React.MouseEvent<HTMLElement>,
-    sound: LibrarySound,
+    sound: SoundFile,
   ) => {
     event.preventDefault();
     event.stopPropagation();
@@ -404,7 +363,7 @@ export default function AudioLibrary() {
   };
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className={isPage ? 'space-y-6 pb-8' : 'space-y-5 pb-12'}>
       {isDraggingExternal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(4,8,14,0.76)] backdrop-blur-xl">
           <div className="w-[min(92vw,28rem)] rounded-[2rem] border border-[var(--line-strong)] bg-[linear-gradient(180deg,rgba(16,28,40,0.98),rgba(10,18,28,0.98))] p-10 text-center shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
@@ -571,54 +530,99 @@ export default function AudioLibrary() {
         </div>
       )}
 
-      <section className="panel-surface overflow-hidden p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="eyebrow mb-2">Global Library</p>
-            <h2 className="font-[var(--font-display)] text-2xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
-              Curate instant-access pads, drops, and show moments.
-            </h2>
-          </div>
-          <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2">
-            <div className="metric-card min-w-0">
-              <span className="metric-label">Sounds</span>
-              <strong className="metric-value">{totalSounds}</strong>
+      {isPage ? (
+        <section className="panel-surface relative overflow-hidden p-6 sm:p-7">
+          <div className="absolute inset-y-0 right-0 hidden w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(45,212,191,0.14),transparent_60%)] lg:block" />
+          <div className="relative flex flex-wrap items-start justify-between gap-5">
+            <div className="max-w-3xl">
+              <p className="eyebrow mb-3">Standalone Soundboard</p>
+              <h2 className="font-[var(--font-display)] text-3xl font-semibold tracking-[-0.05em] text-[var(--text-strong)] sm:text-4xl">
+                Run the full board without the side rack squeeze.
+              </h2>
+              <p className="mt-4 text-base text-[var(--text-muted)]">
+                This view keeps categories, search, and pad playback easier to read on smaller
+                displays, with library changes syncing in automatically.
+              </p>
             </div>
-            <div className="metric-card min-w-0">
-              <span className="metric-label">Categories</span>
-              <strong className="metric-value">{totalCategories}</strong>
+            <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2">
+              <div className="metric-card min-w-0">
+                <span className="metric-label">Sounds</span>
+                <strong className="metric-value">{totalSounds}</strong>
+              </div>
+              <div className="metric-card min-w-0">
+                <span className="metric-label">Categories</span>
+                <strong className="metric-value">{totalCategories}</strong>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <div className="search-shell min-w-[13rem] flex-1">
-            <Search size={17} className="text-[var(--text-muted)]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search sounds, names, and moments"
-              className="search-field"
-            />
+          <div className="relative mt-6 flex flex-wrap items-center gap-3">
+            <div className="search-shell min-w-[13rem] flex-1">
+              <Search size={17} className="text-[var(--text-muted)]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search sounds, names, and moments"
+                className="search-field"
+              />
+            </div>
+            <span className="rounded-full border border-[rgba(45,212,191,0.24)] bg-[rgba(45,212,191,0.1)] px-4 py-2 text-sm text-[var(--accent)]">
+              Live updating
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowCategoryModal(true)}
+              className="ghost-button inline-flex items-center gap-2"
+            >
+              <FolderPlus size={16} />
+              New Category
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCategoryModal(true)}
-            className="ghost-button inline-flex items-center gap-2"
-          >
-            <FolderPlus size={16} />
-            New Category
-          </button>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="panel-surface overflow-hidden p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="eyebrow mb-1">Global Library</p>
+              <h2 className="font-[var(--font-display)] text-xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+                Search and trigger pads.
+              </h2>
+            </div>
+            <span className="rounded-full border border-[rgba(45,212,191,0.24)] bg-[rgba(45,212,191,0.08)] px-3 py-1 text-xs text-[var(--accent)]">
+              Live updating
+            </span>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="search-shell min-w-[12rem] flex-1">
+              <Search size={17} className="text-[var(--text-muted)]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search sounds"
+                className="search-field"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCategoryModal(true)}
+              className="ghost-button inline-flex items-center gap-2"
+            >
+              <FolderPlus size={16} />
+              Category
+            </button>
+          </div>
+        </section>
+      )}
 
       {categories.length > 0 ? (
         <div className="space-y-5">
           {categories.map(([categoryName, categorySounds]) => (
             <section
               key={categoryName}
-              className="panel-surface p-4"
+              className={`panel-surface ${isPage ? 'p-4' : 'p-3'}`}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => void handleDropOnCategory(event, categoryName)}
             >
@@ -627,7 +631,7 @@ export default function AudioLibrary() {
                 onClick={() =>
                   setExpanded((current) => ({
                     ...current,
-                    [categoryName]: !current[categoryName],
+                    [categoryName]: !(current[categoryName] ?? true),
                   }))
                 }
                 className="flex w-full flex-col items-start justify-between gap-3 pb-3 text-left sm:flex-row sm:items-center"
@@ -643,19 +647,21 @@ export default function AudioLibrary() {
                     {categorySounds.length} pads
                   </span>
                   <span className="rounded-full border border-[var(--line)] px-3 py-1 text-xs text-[var(--text-muted)]">
-                    {expanded[categoryName] ? 'Collapse' : 'Expand'}
+                    {(expanded[categoryName] ?? true) ? 'Collapse' : 'Expand'}
                   </span>
                 </div>
               </button>
 
-              {expanded[categoryName] && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {(expanded[categoryName] ?? true) && (
+                <div className={boardGridClassName}>
                   {categorySounds.map((sound) => (
                     <div
                       key={sound.filename}
                       onContextMenu={(event) => openContextMenu(event, sound)}
                       onClick={() => void handleButtonClick(sound.filename, false, () => undefined)}
-                      className="group relative overflow-hidden rounded-[1.45rem] border border-[var(--line)] bg-[linear-gradient(180deg,rgba(16,26,38,0.95),rgba(10,16,24,0.95))] p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-[rgba(45,212,191,0.28)] hover:shadow-[0_18px_40px_rgba(0,0,0,0.35)]"
+                      className={`group relative overflow-hidden rounded-[1.3rem] border border-[var(--line)] bg-[linear-gradient(180deg,rgba(16,26,38,0.95),rgba(10,16,24,0.95))] text-left transition duration-200 hover:-translate-y-0.5 hover:border-[rgba(45,212,191,0.28)] hover:shadow-[0_18px_40px_rgba(0,0,0,0.35)] ${
+                        isPage ? 'p-4' : 'p-3'
+                      }`}
                     >
                       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(45,212,191,0.55),transparent)] opacity-0 transition group-hover:opacity-100" />
                       <div className="flex items-start justify-between gap-3">
@@ -667,9 +673,11 @@ export default function AudioLibrary() {
                             event.dataTransfer.setData('filename', sound.filename);
                           }}
                           onClick={(event) => event.stopPropagation()}
-                          className="flex h-11 w-11 cursor-grab items-center justify-center rounded-2xl border border-[rgba(45,212,191,0.18)] bg-[rgba(45,212,191,0.1)] text-[var(--accent)] active:cursor-grabbing"
+                          className={`flex cursor-grab items-center justify-center rounded-[1rem] border border-[rgba(45,212,191,0.18)] bg-[rgba(45,212,191,0.1)] text-[var(--accent)] active:cursor-grabbing ${
+                            isPage ? 'h-10 w-10' : 'h-9 w-9'
+                          }`}
                         >
-                          <GripVertical size={18} />
+                          <GripVertical size={16} />
                         </button>
                         <button
                           type="button"
@@ -677,37 +685,43 @@ export default function AudioLibrary() {
                           onPointerDown={(event) => event.stopPropagation()}
                           onMouseDown={(event) => event.stopPropagation()}
                           onContextMenu={(event) => openContextMenu(event, sound)}
-                          className="rounded-full border border-transparent p-2 text-[var(--text-muted)] opacity-100 transition hover:border-[var(--line)] hover:text-[var(--text-strong)] md:opacity-0 md:group-hover:opacity-100"
+                          className="rounded-full border border-transparent p-1.5 text-[var(--text-muted)] opacity-100 transition hover:border-[var(--line)] hover:text-[var(--text-strong)] md:opacity-0 md:group-hover:opacity-100"
                         >
                           <MoreHorizontal size={16} />
                         </button>
                       </div>
 
-                      <div className="mt-6">
-                        <p className="line-clamp-2 text-sm font-medium text-[var(--text-strong)]">
+                      <div className={isPage ? 'mt-4' : 'mt-3'}>
+                        <p className="line-clamp-2 text-[13px] font-medium leading-5 text-[var(--text-strong)]">
                           {sound.name}
                         </p>
-                        <p className="mt-2 text-xs text-[var(--text-muted)]">
+                        <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
                           Click to fire instantly
                         </p>
                       </div>
 
                       {hotkeys[sound.filename] && (
-                        <span className="mt-5 inline-flex rounded-full border border-[rgba(245,158,11,0.25)] bg-[rgba(245,158,11,0.12)] px-2.5 py-1 text-[11px] font-medium text-[var(--warm)]">
+                        <span className="mt-3 inline-flex rounded-full border border-[rgba(245,158,11,0.25)] bg-[rgba(245,158,11,0.12)] px-2 py-0.5 text-[10px] font-medium text-[var(--warm)]">
                           {hotkeys[sound.filename].replace('CommandOrControl', 'CTRL')}
                         </span>
                       )}
                     </div>
                   ))}
 
-                  <label className="flex min-h-[12rem] cursor-pointer flex-col items-center justify-center rounded-[1.45rem] border border-dashed border-[var(--line-strong)] bg-[rgba(255,255,255,0.02)] px-4 text-center transition hover:border-[rgba(45,212,191,0.35)] hover:bg-[rgba(45,212,191,0.05)]">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(45,212,191,0.18)] bg-[rgba(45,212,191,0.1)] text-[var(--accent)]">
-                      <UploadCloud size={18} />
+                  <label
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-[1.3rem] border border-dashed border-[var(--line-strong)] bg-[rgba(255,255,255,0.02)] px-4 text-center transition hover:border-[rgba(45,212,191,0.35)] hover:bg-[rgba(45,212,191,0.05)] ${
+                      isPage ? 'min-h-[10.5rem]' : 'min-h-[8.75rem]'
+                    }`}
+                  >
+                    <div className={`mb-3 flex items-center justify-center rounded-[1rem] border border-[rgba(45,212,191,0.18)] bg-[rgba(45,212,191,0.1)] text-[var(--accent)] ${
+                      isPage ? 'h-10 w-10' : 'h-9 w-9'
+                    }`}>
+                      <UploadCloud size={16} />
                     </div>
-                    <p className="text-sm font-medium text-[var(--text-strong)]">
+                    <p className="text-[13px] font-medium text-[var(--text-strong)]">
                       Add files to {categoryName}
                     </p>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    <p className="mt-1 text-[11px] text-[var(--text-muted)]">
                       Supports MP3, WAV, M4A, and OGG
                     </p>
                     <input

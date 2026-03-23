@@ -21,4 +21,8 @@ declare global {
     electronAPI?: ElectronAPI;
     webkitAudioContext?: typeof AudioContext;
   }
+
+  interface MediaDevices {
+    selectAudioOutput?: (options?: { deviceId?: string }) => Promise<MediaDeviceInfo>;
+  }
 }

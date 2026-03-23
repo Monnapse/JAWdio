@@ -25,6 +25,9 @@ interface SelectionRange {
 interface PreviewSnapshot {
   peaks: Array<Float32Array | number[]>;
   audioDuration: number;
+  sampleRate: number;
+  sampleCount: number;
+  circularWriteIndex?: number;
 }
 
 interface TimelineInteractionPan {
@@ -439,11 +442,26 @@ export default function LiveTimelineEditor({
       }
 
       const channels = snapshot.peaks.filter((channel) => channel.length > 0);
-      const sampleCount = channels[0]?.length ?? 0;
+      const sampleCount = Math.min(snapshot.sampleCount, channels[0]?.length ?? 0);
+      const channelCapacity = channels[0]?.length ?? 0;
 
       if (sampleCount === 0) {
         return;
       }
+
+      const usesCircularBuffer =
+        typeof snapshot.circularWriteIndex === 'number' &&
+        sampleCount === channelCapacity &&
+        channelCapacity > 0;
+      const readSample = (channelIndex: number, logicalSampleIndex: number) => {
+        if (!usesCircularBuffer) {
+          return channels[channelIndex][logicalSampleIndex] ?? 0;
+        }
+
+        const physicalIndex =
+          (snapshot.circularWriteIndex! + logicalSampleIndex) % channelCapacity;
+        return channels[channelIndex][physicalIndex] ?? 0;
+      };
 
       const viewStartRatio = clamp(
         (resolvedViewStart - bufferWindow.start) / Math.max(bufferWindow.duration, MIN_VIEW_SECONDS),
@@ -477,7 +495,7 @@ export default function LiveTimelineEditor({
 
         for (let sampleIndex = segmentStart; sampleIndex < segmentEnd; sampleIndex += 1) {
           for (let channelIndex = 0; channelIndex < channels.length; channelIndex += 1) {
-            const sampleValue = channels[channelIndex][sampleIndex] ?? 0;
+            const sampleValue = readSample(channelIndex, sampleIndex);
 
             if (sampleValue < min) {
               min = sampleValue;

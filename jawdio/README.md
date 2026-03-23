@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## JAWDIO
 
-## Getting Started
+Electron + Next.js soundboard and live clipper.
 
-First, run the development server:
+## Development
+
+Install dependencies, then run the desktop app in dev mode:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+That starts Next on port `3000` and opens Electron against it.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build A Windows Installer
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dist
+```
 
-## Learn More
+The installer output lands in `dist/` as a Windows `Setup.exe`.
 
-To learn more about Next.js, take a look at the following resources:
+## What The Packaging Setup Does
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Builds Next in `standalone` mode.
+- Copies only the static assets Electron needs into `.next/standalone`.
+- Creates an NSIS installer with `electron-builder`.
+- Stores user-created sounds and clips in the user's app data folder instead of the install directory.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+On Windows, runtime media is stored under the installed user's app data area for `JAWDIO`, not inside `Program Files`.
 
-## Deploy on Vercel
+## Important
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Do not ship `.env.local` inside the installer.
+- Do not bundle private API keys you do not want recipients to extract.
+- The first `npm install` after these changes will update `package-lock.json` because `electron-builder` was added.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+If SmartScreen warns on another machine, that is normal for unsigned Windows apps. Code signing is the next step if you want a smoother install experience.

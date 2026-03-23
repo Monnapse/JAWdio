@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, MicVocal, Settings2, Square } from 'lucide-react';
+import { LayoutGrid, MicVocal, Settings2, Square, Volume2 } from 'lucide-react';
 
 import { useAudio } from '@/context/AudioContext';
 import { JAWDIO_VERSION } from '@/lib/version';
@@ -75,6 +75,12 @@ export default function Sidebar({
     () =>
       [
         { href: '/', label: 'Overview', description: 'Show dashboard', icon: LayoutGrid },
+        {
+          href: '/soundboard',
+          label: 'Soundboard',
+          description: 'Open the board full width',
+          icon: Volume2,
+        },
         {
           href: '/studio',
           label: 'Clipper',

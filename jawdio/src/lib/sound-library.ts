@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 
+import { getSoundsRoot } from "@/lib/storage";
+
 export interface LibrarySound {
   name: string;
   filename: string;
@@ -11,7 +13,7 @@ export type SoundLibrary = Record<string, LibrarySound[]>;
 
 const INVALID_FILENAME_CHARACTERS = /[<>:"/\\|?*\u0000-\u001F]/g;
 const SUPPORTED_AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".m4a", ".ogg"]);
-const baseSoundsPath = path.resolve(process.cwd(), "public", "sounds");
+const baseSoundsPath = getSoundsRoot();
 
 const sanitizeSegment = (value: string) =>
   value.replace(INVALID_FILENAME_CHARACTERS, " ").replace(/\s+/g, " ").trim();

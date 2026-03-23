@@ -22,6 +22,7 @@ type WindowChromeStyle = CSSProperties & {
 
 const pageMetadata: Record<string, { title: string; tag: string }> = {
   '/': { title: 'Overview', tag: 'Performance Deck' },
+  '/soundboard': { title: 'Soundboard', tag: 'Full Board' },
   '/studio': { title: 'Clipper', tag: 'Buffer + Transcript' },
   '/live': { title: 'Clipper', tag: 'Unified Workflow' },
   '/settings': { title: 'Routing', tag: 'Mixer Setup' },
@@ -45,8 +46,20 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const syncShellWidth = window.setTimeout(() => {
+      const storedLibraryOpen = window.localStorage.getItem('jawdio-library-open');
       const storedWidth = window.localStorage.getItem('jawdio-library-width');
       const parsedWidth = Number.parseInt(storedWidth ?? '', 10);
+
+      if (storedLibraryOpen !== null) {
+        setIsLibraryOpen(storedLibraryOpen === 'true');
+      } else {
+        const shouldOpenByDefault = window.innerWidth >= 1280;
+        setIsLibraryOpen(shouldOpenByDefault);
+        window.localStorage.setItem(
+          'jawdio-library-open',
+          JSON.stringify(shouldOpenByDefault),
+        );
+      }
 
       if (Number.isFinite(parsedWidth)) {
         setRightWidth(parsedWidth);
@@ -90,7 +103,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     }
   };
 
-  const showLibraryPane = pathname !== '/settings';
+  const toggleLibraryPane = useCallback(() => {
+    setIsLibraryOpen((current) => {
+      const nextValue = !current;
+      window.localStorage.setItem('jawdio-library-open', JSON.stringify(nextValue));
+      return nextValue;
+    });
+  }, []);
+
+  const showLibraryPane = pathname !== '/settings' && pathname !== '/soundboard';
   const pageMeta = useMemo(
     () => pageMetadata[pathname] ?? { title: 'JAWDIO', tag: 'Broadcast Suite' },
     [pathname],
@@ -137,8 +158,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     {showLibraryPane && (
                       <button
                         type="button"
-                        onClick={() => setIsLibraryOpen((current) => !current)}
-                        className="rounded-full border border-[var(--line)] bg-[rgba(255,255,255,0.03)] p-2 text-[var(--text-base)] transition hover:border-[var(--line-strong)] hover:text-[var(--text-strong)] 2xl:hidden"
+                        onClick={toggleLibraryPane}
+                        aria-pressed={isLibraryOpen}
+                        className={`rounded-full border p-2 transition ${
+                          isLibraryOpen
+                            ? 'border-[rgba(45,212,191,0.28)] bg-[rgba(45,212,191,0.1)] text-[var(--accent)]'
+                            : 'border-[var(--line)] bg-[rgba(255,255,255,0.03)] text-[var(--text-base)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]'
+                        }`}
                       >
                         <LayoutGrid size={16} />
                       </button>
@@ -171,7 +197,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
               <UpdateShield />
 
-              <main className="flex min-h-0 flex-1 flex-col overflow-hidden 2xl:flex-row">
+              <main className="flex min-h-0 flex-1 flex-col overflow-hidden xl:flex-row">
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                   <div className="flex-1 overflow-y-auto px-4 pb-6 pt-4 sm:px-6 xl:px-8">
                     <div className="mx-auto h-full w-full max-w-[1520px]">{children}</div>
@@ -180,12 +206,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
                 {showLibraryPane && (
                   <aside
-                    className={`${isLibraryOpen ? 'flex' : 'hidden'} shell-library relative shrink-0 flex-col border-t border-[var(--line)] bg-[rgba(8,12,18,0.72)] backdrop-blur-2xl 2xl:flex 2xl:border-l 2xl:border-t-0`}
+                    className={`${isLibraryOpen ? 'flex' : 'hidden'} shell-library relative shrink-0 flex-col border-t border-[var(--line)] bg-[rgba(8,12,18,0.72)] backdrop-blur-2xl xl:border-l xl:border-t-0`}
                     style={libraryPaneStyle}
                   >
                     <div
                       onMouseDown={startResizingRight}
-                      className="shell-resizer left-0 hidden 2xl:block"
+                      className="shell-resizer left-0 hidden xl:block"
                     />
 
                     <div className="m-4 mb-3 rounded-[1.55rem] border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-4 py-4">
@@ -206,7 +232,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-                      <AudioLibrary />
+                      <AudioLibrary variant="panel" />
                     </div>
                   </aside>
                 )}

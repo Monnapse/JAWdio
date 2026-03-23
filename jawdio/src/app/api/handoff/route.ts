@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import path from 'path';
+import { mkdir, writeFile } from 'fs/promises';
+
+import { getDataRoot, getTempHandoffPath } from '@/lib/storage';
 
 export async function POST(req: Request) {
   try {
@@ -8,8 +9,8 @@ export async function POST(req: Request) {
     const file = formData.get('file') as File;
     const bytes = await file.arrayBuffer();
     
-    // Save to the public folder so the web client can fetch it immediately
-    const tempPath = path.join(process.cwd(), 'public', 'temp_handoff.webm');
+    await mkdir(getDataRoot(), { recursive: true });
+    const tempPath = getTempHandoffPath();
     await writeFile(tempPath, Buffer.from(bytes));
     
     return NextResponse.json({ success: true });
