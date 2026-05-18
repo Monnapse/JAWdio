@@ -113,7 +113,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
   const showLibraryPane = pathname !== '/settings' && pathname !== '/soundboard';
   const pageMeta = useMemo(
-    () => pageMetadata[pathname] ?? { title: 'JAWDIO', tag: 'Broadcast Suite' },
+    () => pageMetadata[pathname] ?? { title: 'JAWdio', tag: 'Broadcast Suite' },
     [pathname],
   );
   const libraryPaneStyle: ShellVars = { '--library-width': `${rightWidth}px` };
@@ -142,7 +142,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     </button>
 
                     <div className="min-w-0">
-                      <p className="eyebrow mb-1">JAWDIO Broadcast Suite</p>
+                      <p className="eyebrow mb-1">JAWdio Broadcast Suite</p>
                       <div className="flex min-w-0 items-center gap-3">
                         <h1 className="truncate font-[var(--font-display)] text-xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
                           {pageMeta.title}

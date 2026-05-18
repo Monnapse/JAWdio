@@ -3,10 +3,15 @@
   "version": "0.2.0",
   "private": true,
   "main": "main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Monnapse/JAWdio.git"
+  },
   "scripts": {
     "dev": "concurrently \"next dev -H 0.0.0.0\" \"wait-on http://localhost:3000 && electron .\"",
+    "clean:build": "node scripts/clean-build-artifacts.cjs",
     "build:web": "next build",
-    "build": "npm run build:web && node scripts/prepare-electron.cjs",
+    "build": "npm run clean:build && npm run build:web && node scripts/prepare-electron.cjs",
     "start": "next start",
     "lint": "eslint",
     "pack": "npm run build && electron-builder --dir",
@@ -41,7 +46,7 @@
   },
   "build": {
     "appId": "com.monnapse.jawdio",
-    "productName": "JAWDIO",
+    "productName": "JAWdio",
     "directories": {
       "output": "dist"
     },
@@ -49,7 +54,17 @@
       "main.js",
       "preload.js",
       "package.json",
-      ".next/standalone/**/*"
+      ".next/standalone/**/*",
+      "!.next/standalone/dist{,/**/*}",
+      "!.next/standalone/src{,/**/*}",
+      "!.next/standalone/scripts{,/**/*}",
+      "!.next/standalone/README.md",
+      "!.next/standalone/eslint.config.mjs",
+      "!.next/standalone/next.config.ts",
+      "!.next/standalone/postcss.config.mjs",
+      "!.next/standalone/tsconfig.json",
+      "!.next/standalone/tsconfig.tsbuildinfo",
+      "!.next/standalone/package-lock.json"
     ],
     "asarUnpack": [
       ".next/standalone/**/*"

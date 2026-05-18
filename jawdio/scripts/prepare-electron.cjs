@@ -8,6 +8,18 @@ const publicSource = path.join(projectRoot, 'public');
 const publicTarget = path.join(standaloneRoot, 'public');
 const staticSource = path.join(projectRoot, '.next', 'static');
 const staticTarget = path.join(standaloneNextRoot, 'static');
+const pathsToPrune = [
+  path.join(standaloneRoot, 'dist'),
+  path.join(standaloneRoot, 'src'),
+  path.join(standaloneRoot, 'scripts'),
+  path.join(standaloneRoot, 'README.md'),
+  path.join(standaloneRoot, 'eslint.config.mjs'),
+  path.join(standaloneRoot, 'next.config.ts'),
+  path.join(standaloneRoot, 'postcss.config.mjs'),
+  path.join(standaloneRoot, 'tsconfig.json'),
+  path.join(standaloneRoot, 'tsconfig.tsbuildinfo'),
+  path.join(standaloneRoot, 'package-lock.json'),
+];
 const excludedPublicPaths = new Set([
   path.join(publicSource, 'clips'),
   path.join(publicSource, 'sounds'),
@@ -61,6 +73,10 @@ const copyDirectory = (sourceDir, targetDir, options = {}) => {
 assertPathExists(standaloneRoot, 'Standalone build output');
 assertPathExists(staticSource, 'Next static assets');
 assertPathExists(publicSource, 'Public assets');
+
+for (const targetPath of pathsToPrune) {
+  fs.rmSync(targetPath, { recursive: true, force: true });
+}
 
 fs.mkdirSync(standaloneNextRoot, { recursive: true });
 copyDirectory(staticSource, staticTarget);

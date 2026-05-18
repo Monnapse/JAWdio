@@ -1,4 +1,4 @@
-## JAWDIO
+## JAWdio
 
 Electron + Next.js soundboard and live clipper.
 
@@ -29,7 +29,7 @@ The installer output lands in `dist/` as a Windows `Setup.exe`.
 - Creates an NSIS installer with `electron-builder`.
 - Stores user-created sounds and clips in the user's app data folder instead of the install directory.
 
-On Windows, runtime media is stored under the installed user's app data area for `JAWDIO`, not inside `Program Files`.
+On Windows, runtime media is stored under the installed user's app data area for `JAWdio`, not inside `Program Files`.
 
 ## Important
 
