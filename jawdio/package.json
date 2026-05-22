@@ -8,7 +8,7 @@
     "url": "https://github.com/Monnapse/JAWdio.git"
   },
   "scripts": {
-    "dev": "concurrently \"next dev -H 0.0.0.0\" \"wait-on http://localhost:3000 && electron .\"",
+    "dev": "concurrently \"next dev -H 0.0.0.0 -p 3939\" \"wait-on http://localhost:3939 && electron .\"",
     "clean:build": "node scripts/clean-build-artifacts.cjs",
     "build:web": "next build",
     "build": "npm run clean:build && npm run build:web && node scripts/prepare-electron.cjs",

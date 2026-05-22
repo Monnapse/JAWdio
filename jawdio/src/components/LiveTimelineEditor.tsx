@@ -409,6 +409,33 @@ export default function LiveTimelineEditor({
         context.stroke();
       }
 
+      // Word boundary ticks — one thin line at each visible transcript word's
+      // start, another at its end. Lets the user see exactly which slice of
+      // audio each word covers. Drawn lighter than the selection rectangle so
+      // they don't compete visually with the active trim.
+      context.strokeStyle = 'rgba(127, 200, 240, 0.55)';
+      context.lineWidth = 1;
+      context.beginPath();
+
+      for (const word of timelineWords) {
+        if (word.end < resolvedViewStart || word.start > resolvedViewEnd) {
+          continue;
+        }
+
+        const startX = timeToX(word.start);
+        if (startX >= 0 && startX <= width) {
+          context.moveTo(startX + 0.5, waveAreaTop);
+          context.lineTo(startX + 0.5, waveAreaTop + waveAreaHeight);
+        }
+
+        const endX = timeToX(word.end);
+        if (endX >= 0 && endX <= width) {
+          context.moveTo(endX + 0.5, waveAreaTop);
+          context.lineTo(endX + 0.5, waveAreaTop + waveAreaHeight);
+        }
+      }
+      context.stroke();
+
       if (selectionRange) {
         const selectionLeft = timeToX(
           clamp(selectionRange.start, resolvedViewStart, resolvedViewEnd),
@@ -528,6 +555,7 @@ export default function LiveTimelineEditor({
     selectionRange,
     snapshot,
     timeToX,
+    timelineWords,
     viewportSize.height,
     viewportSize.width,
   ]);

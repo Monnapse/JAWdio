@@ -8,13 +8,30 @@ declare global {
     name: string;
   }
 
+  interface LanUrl {
+    label: string;
+    url: string;
+    ip: string;
+    port: number;
+  }
+
   interface ElectronAPI {
     onTriggerSound: (callback: (filename: string) => void) => void;
     onEngineCommand: (callback: (command: string) => void) => void;
+    onEngineCommandPayload: (callback: (payload: unknown) => void) => void;
+    onEnginePreviewRequest: (
+      callback: (payload: { id: number; start: number; end: number }) => void,
+    ) => void;
+    respondEnginePreview: (payload: {
+      id: number;
+      bytes: Uint8Array | null;
+    }) => void;
+    publishEngineState: (snapshot: unknown) => void;
     registerHotkey: (key: string, filename: string) => void;
     clearHotkeys: () => void;
     sendWindowAction: (action: WindowAction) => void;
     getDesktopSources: () => Promise<DesktopSource[]>;
+    getLanUrls: () => Promise<LanUrl[]>;
   }
 
   interface Window {

@@ -1,6 +1,15 @@
 'use client';
 
-import { Headphones, Mic, Music, Speaker, Waves } from 'lucide-react';
+import {
+  AlertTriangle,
+  Headphones,
+  Mic,
+  Music,
+  Speaker,
+  Volume2,
+  Waves,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import { useAudio } from '@/context/AudioContext';
 
@@ -22,7 +31,67 @@ export default function SettingsPage() {
     setPreviewOutputId,
     setSoundVolume,
     soundVolume,
+    testOutput,
+    defaultOutputLabel,
   } = useAudio();
+
+  // Compute the resolved label for the preview output picker — handy
+  // diagnostics when the user can't hear monitoring.
+  const previewDeviceLabel = useMemo(() => {
+    if (!previewOutputId) {
+      return defaultOutputLabel
+        ? `Windows default → ${defaultOutputLabel}`
+        : 'Windows default (label unknown)';
+    }
+
+    const match = outputs.find((output) => output.deviceId === previewOutputId);
+    return match?.label ?? 'Unknown device';
+  }, [defaultOutputLabel, outputs, previewOutputId]);
+
+  const broadcastDeviceLabel = useMemo(() => {
+    if (!broadcastOutputId) return 'No broadcast output selected';
+    const match = outputs.find((output) => output.deviceId === broadcastOutputId);
+    return match?.label ?? 'Unknown device';
+  }, [broadcastOutputId, outputs]);
+
+  // Heuristic: if the Windows default output is itself a virtual cable, local
+  // monitoring on default will be inaudible. Warn the user.
+  const defaultIsVirtualCable = useMemo(() => {
+    if (!defaultOutputLabel) return false;
+    const lowered = defaultOutputLabel.toLowerCase();
+    return (
+      lowered.includes('vb-audio') ||
+      lowered.includes('cable') ||
+      lowered.includes('voicemeeter')
+    );
+  }, [defaultOutputLabel]);
+
+  const [testStatus, setTestStatus] = useState<
+    Record<'broadcast' | 'preview', 'idle' | 'playing' | 'ok' | 'failed'>
+  >({ broadcast: 'idle', preview: 'idle' });
+
+  const runOutputTest = async (
+    key: 'broadcast' | 'preview',
+    sinkId: string | null,
+  ) => {
+    setTestStatus((current) => ({ ...current, [key]: 'playing' }));
+    const ok = await testOutput(sinkId);
+    setTestStatus((current) => ({ ...current, [key]: ok ? 'ok' : 'failed' }));
+    window.setTimeout(() => {
+      setTestStatus((current) =>
+        current[key] === 'ok' || current[key] === 'failed'
+          ? { ...current, [key]: 'idle' }
+          : current,
+      );
+    }, 2400);
+  };
+
+  const renderTestLabel = (state: 'idle' | 'playing' | 'ok' | 'failed') => {
+    if (state === 'playing') return 'Playing…';
+    if (state === 'ok') return '✓ Heard it?';
+    if (state === 'failed') return '✗ Routing failed';
+    return 'Test';
+  };
 
   if (!isHost) {
     return (
@@ -184,11 +253,27 @@ export default function SettingsPage() {
                   </option>
                 ))}
               </select>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void runOutputTest('broadcast', broadcastOutputId || null)}
+                  disabled={!broadcastOutputId || testStatus.broadcast === 'playing'}
+                  className="ghost-button"
+                >
+                  <Volume2 size={13} />
+                  {renderTestLabel(testStatus.broadcast)}
+                </button>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Targeting <span className="text-[var(--text-strong)]">{broadcastDeviceLabel}</span>.
+                  OBS should see the meter move.
+                </p>
+              </div>
               <p className="mt-3 text-sm text-[var(--text-muted)]">
                 Current target: <span className="text-[var(--text-strong)]">{cableName}</span>
               </p>
               <p className="mt-2 text-xs text-[var(--text-muted)]">
-                Pick `Voicemeeter AUX Input` here if that is the bus you want the board to feed.
+                Pick the virtual cable that feeds OBS (e.g. CABLE Input). Use the Setup page to
+                install any missing routes.
               </p>
             </div>
           </div>
@@ -220,7 +305,7 @@ export default function SettingsPage() {
                     onChange={(event) => void setPreviewOutputId(event.target.value)}
                     className="select-field mt-2"
                   >
-                    <option value="">Select a local preview output</option>
+                    <option value="">Use Windows default output (recommended)</option>
                     {outputs
                       .filter((output) => output.deviceId !== broadcastOutputId)
                       .map((output) => (
@@ -229,9 +314,49 @@ export default function SettingsPage() {
                         </option>
                       ))}
                   </select>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void runOutputTest('preview', previewOutputId || null)}
+                      disabled={testStatus.preview === 'playing'}
+                      className="ghost-button"
+                    >
+                      <Volume2 size={13} />
+                      {renderTestLabel(testStatus.preview)}
+                    </button>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      Targeting{' '}
+                      <span className="text-[var(--text-strong)]">{previewDeviceLabel}</span>.
+                    </p>
+                  </div>
+
+                  {defaultIsVirtualCable && !previewOutputId && (
+                    <div className="mt-3 flex items-start gap-2 rounded-md border border-[rgba(246,196,75,0.32)] bg-[rgba(246,196,75,0.1)] p-3">
+                      <AlertTriangle
+                        size={14}
+                        className="mt-0.5 shrink-0 text-[var(--warm)]"
+                      />
+                      <div className="text-xs text-[var(--text-base)]">
+                        <p className="font-semibold text-[var(--text-strong)]">
+                          Your Windows default is a virtual cable.
+                        </p>
+                        <p className="mt-1 text-[var(--text-muted)]">
+                          That&apos;s why monitoring is silent on Windows default — the audio is
+                          going into the cable, not your speakers. Either{' '}
+                          <span className="text-[var(--text-strong)]">
+                            change Windows&apos; default playback device
+                          </span>{' '}
+                          to your real headphones (Windows audio settings → Sound), or pick your
+                          headphones directly in this dropdown.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <p className="mt-2 text-xs text-[var(--text-muted)]">
-                    All outputs except the active broadcast bus are available here. Picking a
-                    virtual output can route preview audio back into OBS, Fortnite, or your board.
+                    Plays pads back to you while OBS records them silently. Leave on{' '}
+                    <span className="text-[var(--text-strong)]">Windows default</span> unless you
+                    have a specific reason to pin a device.
                   </p>
                 </div>
               </div>

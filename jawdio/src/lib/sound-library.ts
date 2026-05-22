@@ -7,6 +7,8 @@ export interface LibrarySound {
   name: string;
   filename: string;
   category: string;
+  /** File modification time in ms — used as a "saved at" timestamp. */
+  createdAt: number;
 }
 
 export type SoundLibrary = Record<string, LibrarySound[]>;
@@ -22,9 +24,29 @@ export const ensureSoundsPath = () => {
   fs.mkdirSync(baseSoundsPath, { recursive: true });
 };
 
+/**
+ * Normalize a possibly-nested category path. Each "/"-separated segment is
+ * sanitised independently so users can express folders-of-folders like
+ * "Drops/Air horns". Empty input falls back to the "Uncategorized" root.
+ */
 export const normalizeCategoryName = (value: string) => {
-  const cleanValue = sanitizeSegment(path.basename(value || ""));
-  return cleanValue || "Uncategorized";
+  if (!value) return "Uncategorized";
+
+  const segments = value
+    .split(/[\\/]+/)
+    .map((segment) => sanitizeSegment(segment))
+    .filter(Boolean);
+
+  if (segments.length === 0) return "Uncategorized";
+
+  // Collapse any explicit "Uncategorized" intermediate path back to the root —
+  // we never want sounds living under <root>/Uncategorized/sub on disk.
+  if (segments[0] === "Uncategorized") {
+    if (segments.length === 1) return "Uncategorized";
+    segments.shift();
+  }
+
+  return segments.join("/");
 };
 
 export const isSupportedAudioFile = (filename: string) =>
@@ -73,7 +95,16 @@ export const getCategoryDirectory = (category: string) => {
     return baseSoundsPath;
   }
 
-  return path.join(baseSoundsPath, normalizedCategory);
+  const segments = normalizedCategory.split("/").filter(Boolean);
+  const target = path.join(baseSoundsPath, ...segments);
+
+  // Defence-in-depth: make sure we never escape the sounds root with a crafted
+  // "../" segment that slipped past sanitizeSegment.
+  if (!path.resolve(target).startsWith(path.resolve(baseSoundsPath))) {
+    return baseSoundsPath;
+  }
+
+  return target;
 };
 
 export const ensureUniqueFilePath = (desiredPath: string, existingPath?: string) => {
@@ -95,40 +126,72 @@ export const ensureUniqueFilePath = (desiredPath: string, existingPath?: string)
   return candidatePath;
 };
 
-export const listSoundLibrary = () => {
-  ensureSoundsPath();
+const safeStatMs = (absolutePath: string) => {
+  try {
+    return fs.statSync(absolutePath).mtimeMs;
+  } catch {
+    return 0;
+  }
+};
 
-  const entries = fs.readdirSync(baseSoundsPath, { withFileTypes: true });
-  const library: SoundLibrary = { Uncategorized: [] };
+/**
+ * Recursive directory walk. Every folder at any depth becomes a key in the
+ * returned map; the key is the slash-separated path relative to the sounds
+ * root (the empty path "" becomes the special "Uncategorized" key for back-
+ * compat with all existing UI code). Audio files inside a folder are listed
+ * directly under that folder's key — they do NOT bubble up.
+ */
+const collectFolders = (absoluteDir: string, relativeKey: string, library: SoundLibrary) => {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(absoluteDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  const folderKey = relativeKey === "" ? "Uncategorized" : relativeKey;
+
+  if (!library[folderKey]) {
+    library[folderKey] = [];
+  }
 
   for (const entry of entries) {
-    if (entry.isDirectory()) {
-      const categoryPath = path.join(baseSoundsPath, entry.name);
-      const sounds = fs
-        .readdirSync(categoryPath)
-        .filter(isSupportedAudioFile)
-        .sort((left, right) => left.localeCompare(right))
-        .map((filename) => ({
-          name: path.basename(filename, path.extname(filename)),
-          filename: `${entry.name}/${filename}`,
-          category: entry.name,
-        }));
+    const entryAbsolute = path.join(absoluteDir, entry.name);
 
-      library[entry.name] = sounds;
+    if (entry.isDirectory()) {
+      const nextRelative = relativeKey === "" ? entry.name : `${relativeKey}/${entry.name}`;
+      collectFolders(entryAbsolute, nextRelative, library);
       continue;
     }
 
     if (entry.isFile() && isSupportedAudioFile(entry.name)) {
-      library.Uncategorized.push({
+      const filenameKey =
+        relativeKey === "" ? entry.name : `${relativeKey}/${entry.name}`;
+
+      library[folderKey].push({
         name: path.basename(entry.name, path.extname(entry.name)),
-        filename: entry.name,
-        category: "Uncategorized",
+        filename: filenameKey,
+        category: folderKey,
+        createdAt: safeStatMs(entryAbsolute),
       });
     }
   }
+};
 
-  library.Uncategorized.sort((left, right) => left.name.localeCompare(right.name));
+export const listSoundLibrary = () => {
+  ensureSoundsPath();
 
+  const library: SoundLibrary = { Uncategorized: [] };
+  collectFolders(baseSoundsPath, "", library);
+
+  // Within each folder, sort by name for stable rendering.
+  for (const key of Object.keys(library)) {
+    library[key].sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  // Order keys: Uncategorized first, then alphabetical by path. The frontend
+  // uses these keys directly to build the rendered tree, so a consistent
+  // alphabetical order keeps the UI stable across requests.
   return Object.fromEntries(
     Object.entries(library).sort(([left], [right]) => {
       if (left === "Uncategorized") {

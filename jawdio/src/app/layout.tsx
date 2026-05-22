@@ -4,13 +4,13 @@ import './globals.css';
 
 import type { CSSProperties, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutGrid, Menu, Minus, Copy, Square, X } from 'lucide-react';
+import { LayoutGrid, Maximize2, Menu, Minimize2, Minus, Copy, Square, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import AudioLibrary from '@/components/AudioLibrary';
 import Sidebar from '@/components/Sidebar';
 import UpdateShield from '@/components/UpdateShield';
-import { AudioProvider } from '@/context/AudioContext';
+import { AudioProvider, useAudio } from '@/context/AudioContext';
 
 type ShellVars = CSSProperties & {
   '--library-width'?: string;
@@ -26,22 +26,88 @@ const pageMetadata: Record<string, { title: string; tag: string }> = {
   '/studio': { title: 'Clipper', tag: 'Buffer + Transcript' },
   '/live': { title: 'Clipper', tag: 'Unified Workflow' },
   '/settings': { title: 'Routing', tag: 'Mixer Setup' },
+  '/setup': { title: 'Setup', tag: 'Audio Lanes' },
+  '/auto-clipper': { title: 'Auto-Clipper', tag: 'AI Detector' },
 };
 
 const dragStyle: WindowChromeStyle = { WebkitAppRegion: 'drag' };
 const noDragStyle: WindowChromeStyle = { WebkitAppRegion: 'no-drag' };
 
+/**
+ * Wires global keyboard shortcuts that depend on AudioContext. Lives inside
+ * AudioProvider so it can call useAudio.
+ *
+ * Shortcuts:
+ *   Escape          — Stop all currently-playing sounds
+ *   Ctrl/Cmd + Shift + D — Toggle compact density on <body>
+ */
+function GlobalShortcuts() {
+  const { handleStopClick } = useAudio();
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('jawdio-density');
+
+    if (stored === 'compact') {
+      document.body.classList.add('density-compact');
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Skip when the user is typing in a field — Escape shouldn't fire then.
+      const target = event.target as HTMLElement | null;
+      const isInField =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable === true;
+
+      if (event.key === 'Escape' && !isInField) {
+        event.preventDefault();
+        void handleStopClick();
+        return;
+      }
+
+      const isDensityToggle =
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === 'd';
+
+      if (isDensityToggle) {
+        event.preventDefault();
+        const next = document.body.classList.toggle('density-compact');
+        window.localStorage.setItem('jawdio-density', next ? 'compact' : 'comfortable');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleStopClick]);
+
+  return null;
+}
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isLibraryMaximized, setIsLibraryMaximized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isElectronHost, setIsElectronHost] = useState(false);
   const [rightWidth, setRightWidth] = useState(440);
   const isDraggingRight = useRef(false);
 
   const startResizingRight = useCallback(() => {
     isDraggingRight.current = true;
     document.body.style.cursor = 'col-resize';
+  }, []);
+
+  useEffect(() => {
+    // Detect Electron once on mount. The setState-in-effect pattern is the
+    // accepted way to read `window.electronAPI` while avoiding SSR hydration
+    // mismatches — the initial server render assumes "not electron" and we
+    // upgrade on the client.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsElectronHost(Boolean(window.electronAPI));
   }, []);
 
   useEffect(() => {
@@ -111,7 +177,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const showLibraryPane = pathname !== '/settings' && pathname !== '/soundboard';
+  const showLibraryPane =
+    pathname !== '/settings' &&
+    pathname !== '/soundboard' &&
+    pathname !== '/setup' &&
+    pathname !== '/auto-clipper';
   const pageMeta = useMemo(
     () => pageMetadata[pathname] ?? { title: 'JAWdio', tag: 'Broadcast Suite' },
     [pathname],
@@ -120,77 +190,91 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
   return (
     <html lang="en">
+      <head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+      </head>
       <body className="antialiased select-none">
         <AudioProvider>
+          <GlobalShortcuts />
           <div className="jawdio-layout">
             <Sidebar isOpen={isSidebarOpen} toggle={() => setIsSidebarOpen((current) => !current)} />
 
             <div className="content-area">
               <header
-                className="border-b border-[var(--line)] bg-[rgba(8,14,22,0.84)] px-4 py-3 backdrop-blur-xl sm:px-6"
+                className="border-b border-[var(--line)] bg-[rgba(4,17,30,0.86)] px-3 py-1.5 backdrop-blur-xl sm:px-4"
                 style={dragStyle}
               >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setIsSidebarOpen((current) => !current)}
-                      className="rounded-full border border-[var(--line)] bg-[rgba(255,255,255,0.03)] p-2 text-[var(--text-base)] transition hover:border-[var(--line-strong)] hover:text-[var(--text-strong)] xl:hidden"
+                      className="rounded-md border border-[var(--line)] bg-[rgba(255,255,255,0.04)] p-1.5 text-[var(--text-base)] transition hover:border-[var(--line-strong)] hover:text-[var(--text-strong)] xl:hidden"
                       style={noDragStyle}
                     >
-                      <Menu size={17} />
+                      <Menu size={15} />
                     </button>
 
                     <div className="min-w-0">
-                      <p className="eyebrow mb-1">JAWdio Broadcast Suite</p>
-                      <div className="flex min-w-0 items-center gap-3">
-                        <h1 className="truncate font-[var(--font-display)] text-xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <h1 className="truncate font-[var(--font-display)] text-[0.95rem] font-semibold tracking-[-0.03em] text-[var(--text-strong)]">
                           {pageMeta.title}
                         </h1>
-                        <span className="hidden rounded-full border border-[rgba(45,212,191,0.24)] bg-[rgba(45,212,191,0.1)] px-3 py-1 text-xs text-[var(--accent)] sm:inline-flex">
+                        <span className="hidden rounded-full border border-[rgba(62,162,230,0.28)] bg-[rgba(62,162,230,0.1)] px-2 py-[1px] text-[10px] uppercase tracking-[0.14em] text-[var(--accent)] sm:inline-flex">
                           {pageMeta.tag}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2" style={noDragStyle}>
+                  <div className="flex items-center gap-1" style={noDragStyle}>
                     {showLibraryPane && (
                       <button
                         type="button"
                         onClick={toggleLibraryPane}
                         aria-pressed={isLibraryOpen}
-                        className={`rounded-full border p-2 transition ${
+                        title="Toggle pad library"
+                        className={`rounded-md border p-1.5 transition ${
                           isLibraryOpen
-                            ? 'border-[rgba(45,212,191,0.28)] bg-[rgba(45,212,191,0.1)] text-[var(--accent)]'
-                            : 'border-[var(--line)] bg-[rgba(255,255,255,0.03)] text-[var(--text-base)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]'
+                            ? 'border-[rgba(62,162,230,0.34)] bg-[rgba(62,162,230,0.12)] text-[var(--accent)]'
+                            : 'border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-[var(--text-base)] hover:border-[var(--line-strong)] hover:text-[var(--text-strong)]'
                         }`}
                       >
-                        <LayoutGrid size={16} />
+                        <LayoutGrid size={14} />
                       </button>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => handleWindowAction('minimize')}
-                      className="rounded-full border border-transparent p-2 text-[var(--text-muted)] transition hover:border-[var(--line)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-strong)]"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleWindowAction('maximize')}
-                      className="rounded-full border border-transparent p-2 text-[var(--text-muted)] transition hover:border-[var(--line)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-strong)]"
-                    >
-                      {isMaximized ? <Copy size={12} /> : <Square size={12} />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleWindowAction('close')}
-                      className="rounded-full border border-transparent p-2 text-[var(--text-muted)] transition hover:border-[rgba(251,113,133,0.22)] hover:bg-[rgba(251,113,133,0.1)] hover:text-[var(--danger)]"
-                    >
-                      <X size={14} />
-                    </button>
+                    {isElectronHost && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleWindowAction('minimize')}
+                          title="Minimize"
+                          className="rounded-md border border-transparent p-1.5 text-[var(--text-muted)] transition hover:border-[var(--line)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[var(--text-strong)]"
+                        >
+                          <Minus size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleWindowAction('maximize')}
+                          title={isMaximized ? 'Restore' : 'Maximize'}
+                          className="rounded-md border border-transparent p-1.5 text-[var(--text-muted)] transition hover:border-[var(--line)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[var(--text-strong)]"
+                        >
+                          {isMaximized ? <Copy size={11} /> : <Square size={11} />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleWindowAction('close')}
+                          title="Close"
+                          className="rounded-md border border-transparent p-1.5 text-[var(--text-muted)] transition hover:border-[rgba(229,115,115,0.32)] hover:bg-[rgba(229,115,115,0.16)] hover:text-[var(--danger)]"
+                        >
+                          <X size={13} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </header>
@@ -198,40 +282,58 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <UpdateShield />
 
               <main className="flex min-h-0 flex-1 flex-col overflow-hidden xl:flex-row">
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                  <div className="flex-1 overflow-y-auto px-4 pb-6 pt-4 sm:px-6 xl:px-8">
+                <div
+                  className={`${
+                    isLibraryMaximized ? 'hidden' : 'flex'
+                  } min-h-0 flex-1 flex-col overflow-hidden`}
+                >
+                  <div className="flex-1 overflow-y-auto px-3 pb-4 pt-3 sm:px-4 xl:px-5">
                     <div className="mx-auto h-full w-full max-w-[1520px]">{children}</div>
                   </div>
                 </div>
 
                 {showLibraryPane && (
                   <aside
-                    className={`${isLibraryOpen ? 'flex' : 'hidden'} shell-library relative shrink-0 flex-col border-t border-[var(--line)] bg-[rgba(8,12,18,0.72)] backdrop-blur-2xl xl:border-l xl:border-t-0`}
-                    style={libraryPaneStyle}
+                    className={`${isLibraryOpen ? 'flex' : 'hidden'} ${
+                      isLibraryMaximized
+                        ? 'flex-1 max-h-none'
+                        : 'shell-library'
+                    } relative shrink-0 flex-col border-t border-[var(--line)] bg-[rgba(8,24,42,0.74)] backdrop-blur-2xl xl:border-l xl:border-t-0`}
+                    style={isLibraryMaximized ? undefined : libraryPaneStyle}
                   >
-                    <div
-                      onMouseDown={startResizingRight}
-                      className="shell-resizer left-0 hidden xl:block"
-                    />
+                    {!isLibraryMaximized && (
+                      <div
+                        onMouseDown={startResizingRight}
+                        className="shell-resizer left-0 hidden xl:block"
+                      />
+                    )}
 
-                    <div className="m-4 mb-3 rounded-[1.55rem] border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-4 py-4">
-                      <p className="eyebrow mb-2">Global Board</p>
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <h2 className="font-[var(--font-display)] text-xl font-semibold tracking-[-0.04em] text-[var(--text-strong)]">
-                            Sound Pads
-                          </h2>
-                          <p className="mt-1 text-sm text-[var(--text-muted)]">
-                            Always-armed playback rack with drag-and-drop organization.
-                          </p>
-                        </div>
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(45,212,191,0.2)] bg-[rgba(45,212,191,0.1)] text-[var(--accent)]">
-                          <LayoutGrid size={18} />
-                        </div>
+                    <div className="mx-3 mt-3 mb-2 flex items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[rgba(255,255,255,0.035)] px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="eyebrow mb-0.5">Library</p>
+                        <h2 className="truncate font-[var(--font-display)] text-sm font-semibold tracking-[-0.02em] text-[var(--text-strong)]">
+                          Sound Pads
+                        </h2>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsLibraryMaximized((value) => !value)}
+                        title={
+                          isLibraryMaximized
+                            ? 'Restore the main view'
+                            : 'Expand the library to fill the screen'
+                        }
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition ${
+                          isLibraryMaximized
+                            ? 'border-[rgba(62,162,230,0.5)] bg-[rgba(62,162,230,0.2)] text-[var(--accent)]'
+                            : 'border-[rgba(62,162,230,0.28)] bg-[rgba(62,162,230,0.1)] text-[var(--accent)] hover:bg-[rgba(62,162,230,0.2)]'
+                        }`}
+                      >
+                        {isLibraryMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                      </button>
                     </div>
 
-                    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                    <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
                       <AudioLibrary variant="panel" />
                     </div>
                   </aside>
